@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ImmoRadar">
+<meta name="theme-color" content="#1a4a6b">
+<title>ImmoRadar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --brand:#1a4a6b;--brand2:#153d5a;--brand-light:#e8f0f7;
+  --accent:#e07b3a;--accent-light:#fdf0e6;
+  --ok:#2d7d52;--ok-light:#e8f5ee;
+  --bg:#ffffff;--bg2:#f5f5f7;--bg3:#ebebed;
+  --text:#1c1c1e;--muted:#6e6e73;--border:#d1d1d6;
+  --r:10px;--rl:14px;
+  --ff:'DM Sans',sans-serif;--fd:'Playfair Display',serif;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;--text:#f2f2f7;--muted:#8e8e93;--border:#38383a;--brand-light:#1c2e3d;--accent-light:#2d1e10;}
+}
+html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);background:var(--bg);}
+.app{display:flex;flex-direction:column;height:100%;padding-top:var(--safe-top);}
+/* STATUS */
+.sbar{height:0;}
+/* HEADER */
+.hdr{padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--border);background:var(--bg);flex-shrink:0;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-ico{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-ico i{color:#fff;font-size:17px;}
+.brand-name{font-size:17px;font-weight:600;color:var(--text);}
+.brand-sub{font-size:11px;color:var(--muted);}
+.hdr-r{display:flex;gap:8px;}
+.hbtn{width:34px;height:34px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:15px;}
+.hbtn:active{background:var(--bg2);}
+.pbtn{font-family:var(--ff);font-size:13px;padding:7px 13px;border-radius:20px;border:none;background:var(--brand);color:#fff;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:5px;}
+.pbtn:active{background:var(--brand2);}
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(60px + var(--safe-bot));}
+/* PANELS */
+.panel{display:none;}.panel.on{display:block;}
+/* BOTTOM NAV */
+.bnav{flex-shrink:0;height:calc(58px + var(--safe-bot));padding-bottom:var(--safe-bot);background:var(--bg);border-top:0.5px solid var(--border);display:flex;align-items:flex-start;justify-content:space-around;padding-top:8px;}
+.ni{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 10px;border-radius:var(--r);flex:1;position:relative;min-width:44px;min-height:44px;}
+.ni:active{background:var(--bg2);}
+.ni i{font-size:22px;color:var(--muted);}
+.ni.on i{color:var(--brand);}
+.ni-lbl{font-size:10px;color:var(--muted);font-weight:400;}
+.ni.on .ni-lbl{color:var(--brand);font-weight:600;}
+.nbadge{position:absolute;top:2px;right:8px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:0 4px;min-width:15px;text-align:center;line-height:15px;}
+/* BANNER */
+.banner{margin:10px 14px 0;border-radius:var(--r);padding:9px 12px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;}
+.banner.ok{background:var(--ok-light);color:var(--ok);}
+.banner.warn{background:#fdf0e6;color:#b35c1e;}
+.banner.err{background:#fce8e6;color:#c0392b;}
+/* CHIPS */
+.chips{padding:10px 14px 4px;overflow-x:auto;white-space:nowrap;display:flex;gap:6px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{font-size:13px;padding:6px 13px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font-family:var(--ff);white-space:nowrap;}
+.chip.on{background:var(--brand);color:#fff;border-color:var(--brand);}
+/* CARDS */
+.cards{padding:8px 14px;display:flex;flex-direction:column;gap:10px;}
+.acard{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.acard.fav{border-left:3px solid var(--accent);}
+.acard-img{height:96px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;position:relative;}
+.acard-img i{font-size:38px;color:#8aafc0;opacity:.5;}
+.src-tag{position:absolute;top:8px;left:8px;background:var(--bg);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;color:var(--brand);}
+.new-tag{position:absolute;top:8px;right:8px;background:var(--accent);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:600;color:#fff;}
+.acard-body{padding:11px 13px;}
+.aprix{font-size:17px;font-weight:600;color:var(--brand);font-family:var(--fd);}
+.asub{font-size:11px;color:var(--muted);margin:2px 0 7px;}
+.atags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px;}
+.tag{font-size:11px;padding:3px 9px;border-radius:5px;background:var(--brand-light);color:var(--brand);font-weight:500;}
+.tag.o{background:var(--accent-light);color:#9a4c1a;}
+.actas{display:flex;gap:6px;border-top:0.5px solid var(--border);padding-top:9px;}
+.acta{font-family:var(--ff);font-size:12px;padding:7px 8px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px;}
+.acta:active{background:var(--bg2);}
+.acta.fav-on{color:var(--accent);border-color:var(--accent);background:var(--accent-light);}
+/* SECTION TITLE */
+.sec{font-size:17px;font-weight:600;padding:14px 14px 6px;font-family:var(--fd);}
+/* MAP */
+.map-wrap{margin:0 14px;border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--border);}
+.map-actions{padding:8px 14px;display:flex;gap:8px;}
+/* BOITAGE */
+.freq-row{display:flex;gap:8px;padding:0 14px 10px;}
+.freq-btn{flex:1;font-family:var(--ff);font-size:13px;padding:9px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;text-align:center;font-weight:500;}
+.freq-btn.on{background:var(--brand);color:#fff;border-color:var(--brand);}
+.tstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 10px;}
+.tstat{background:var(--bg2);border-radius:var(--r);padding:10px 12px;}
+.tstat-v{font-size:19px;font-weight:600;color:var(--brand);font-family:var(--fd);}
+.tstat-l{font-size:10px;color:var(--muted);margin-top:2px;}
+.stops{padding:0 14px;}
+.stop{display:flex;gap:10px;padding:11px 0;border-bottom:0.5px solid var(--border);align-items:flex-start;}
+.stopn{width:27px;height:27px;border-radius:50%;background:var(--brand);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.stop-inf{flex:1;}
+.stop-addr{font-size:14px;font-weight:500;}
+.stop-dtl{font-size:11px;color:var(--muted);margin-top:2px;}
+.stop-meta{font-size:11px;color:var(--muted);margin-top:3px;display:flex;gap:10px;}
+.stop-t{font-size:12px;color:var(--muted);white-space:nowrap;padding-top:2px;}
+.add-zone{margin:10px 14px;border:0.5px dashed var(--border);border-radius:var(--r);padding:13px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.maps-btn{margin:0 14px 14px;background:var(--brand);color:#fff;border:none;border-radius:var(--r);padding:14px;width:calc(100% - 28px);font-family:var(--ff);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+.maps-btn:active{background:var(--brand2);}
+/* ALERTES */
+.alert-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:0.5px solid var(--border);}
+.alert-ico{width:38px;height:38px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.alert-inf{flex:1;}
+.alert-ttl{font-size:13px;font-weight:500;}
+.alert-dsc{font-size:11px;color:var(--muted);margin-top:1px;}
+.alert-ct{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;}
+.tog{width:51px;height:31px;border-radius:16px;background:var(--ok);position:relative;cursor:pointer;flex-shrink:0;transition:background .25s;}
+.tog.off{background:var(--bg3);}
+.togk{position:absolute;top:3px;right:3px;width:25px;height:25px;border-radius:50%;background:#fff;transition:right .25s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tog.off .togk{right:auto;left:3px;}
+/* FAV EMPTY */
+.fav-empty{text-align:center;padding:60px 20px;color:var(--muted);}
+.fav-empty i{font-size:44px;opacity:.2;display:block;margin-bottom:14px;}
+/* MODAL */
+.mwrap{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:300;}
+.msheet{background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:14px 16px calc(20px + var(--safe-bot));max-height:90vh;overflow-y:auto;}
+.mhandle{width:40px;height:5px;border-radius:3px;background:var(--border);margin:0 auto 16px;}
+.mttl{font-size:18px;font-weight:600;margin-bottom:14px;font-family:var(--fd);}
+.fgrp{margin-bottom:11px;}
+.fgrp label{font-size:12px;color:var(--muted);margin-bottom:4px;display:block;font-weight:500;}
+.fgrp input,.fgrp select,.fgrp textarea{width:100%;font-family:var(--ff);font-size:15px;padding:10px 13px;border:0.5px solid var(--border);border-radius:var(--r);background:var(--bg);color:var(--text);-webkit-appearance:none;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mfooter{display:flex;gap:8px;margin-top:16px;}
+.mfooter button{flex:1;font-family:var(--ff);font-size:14px;padding:12px;border-radius:var(--r);cursor:pointer;font-weight:600;}
+.mcancel{background:var(--bg2);border:0.5px solid var(--border);color:var(--text);}
+.mok{background:var(--brand);border:none;color:#fff;}
+/* INSTALL BANNER */
+.install-bar{background:var(--brand);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;}
+.install-bar i{font-size:20px;flex-shrink:0;}
+.install-bar span{flex:1;line-height:1.3;}
+.install-bar button{background:rgba(255,255,255,.2);border:none;color:#fff;font-family:var(--ff);font-size:12px;padding:6px 12px;border-radius:20px;cursor:pointer;white-space:nowrap;font-weight:500;}
+.install-bar button:active{background:rgba(255,255,255,.35);}
+.install-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 0 0 4px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- INSTALL BANNER -->
+  <div class="install-bar" id="installBar">
+    <i class="fa-solid fa-house-chimney"></i>
+    <span>Ajoute ImmoRadar à ton écran d'accueil pour y accéder comme une vraie app</span>
+    <button onclick="showInstallGuide()">Comment faire ?</button>
+    <button class="install-close" onclick="document.getElementById('installBar').style.display='none'">✕</button>
+  </div>
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="brand">
+      <div class="brand-ico"><i class="fa-solid fa-house-chimney-window"></i></div>
+      <div>
+        <div class="brand-name">ImmoRadar</div>
+        <div class="brand-sub">Marie-Astrid · IAD · Sceaux 92</div>
+      </div>
+    </div>
+    <div class="hdr-r">
+      <div class="hbtn" id="syncBtn" onclick="doSync()"><i class="fa-solid fa-rotate" id="syncIco"></i></div>
+      <button class="pbtn" onclick="openModal()"><i class="fa-solid fa-plus"></i> Bien</button>
+    </div>
+  </div>
+
+  <!-- SCROLL -->
+  <div class="scroll" id="scroll">
+
+    <!-- ANNONCES -->
+    <div class="panel on" id="p-annonces">
+      <div class="banner ok" id="syncBanner">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="syncMsg">Bien'ici · 14 annonces actives · actualisez pour voir les nouvelles</span>
+      </div>
+      <div class="chips">
+        <button class="chip on" onclick="filterC('Toutes',this)">Toutes</button>
+        <button class="chip" onclick="filterC('Sceaux',this)">Sceaux</button>
+        <button class="chip" onclick="filterC('Bourg-la-Reine',this)">Bourg-la-Reine</button>
+        <button class="chip" onclick="filterC('Châtenay-Malabry',this)">Châtenay-Malabry</button>
+        <button class="chip" onclick="filterC('Fontenay-aux-Roses',this)">Fontenay-aux-Roses</button>
+      </div>
+      <div class="cards" id="cardsList"></div>
+    </div>
+
+    <!-- CARTE -->
+    <div class="panel" id="p-carte">
+      <div class="sec">Carte des biens</div>
+      <div class="map-wrap">
+        <svg id="mapSvg" width="100%" viewBox="0 0 360 300" style="display:block;background:#dce8f0;"></svg>
+      </div>
+      <div class="map-actions">
+        <button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="openGMaps()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Google Maps</button>
+        <button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="goTab('boitage')"><i class="fa-solid fa-route"></i> Planifier boîtage</button>
+      </div>
+    </div>
+
+    <!-- BOITAGE -->
+    <div class="panel" id="p-boitage">
+      <div class="sec">Tournée boîtage</div>
+      <div class="freq-row">
+        <button class="freq-btn on" id="freq1" onclick="setFreq(1)">1× par mois</button>
+        <button class="freq-btn" id="freq2" onclick="setFreq(2)">2× par mois</button>
+      </div>
+      <div class="tstats">
+        <div class="tstat"><div class="tstat-v">4</div><div class="tstat-l">quartiers</div></div>
+        <div class="tstat"><div class="tstat-v" id="t-boites">2 400</div><div class="tstat-l">boîtes aux lettres</div></div>
+        <div class="tstat"><div class="tstat-v">18 km</div><div class="tstat-l">en voiture</div></div>
+        <div class="tstat"><div class="tstat-v" id="t-dur">2h30</div><div class="tstat-l">durée estimée</div></div>
+      </div>
+      <div class="stops" id="boitageStops"></div>
+      <div class="add-zone" onclick="alert('Fonctionnalité bientôt disponible')"><i class="fa-solid fa-plus"></i> Ajouter un quartier</div>
+      <button class="maps-btn" onclick="openBoitageRoute()"><i class="fa-solid fa-map-pin"></i> Démarrer dans Google Maps</button>
+    </div>
+
+    <!-- FAVORIS -->
+    <div class="panel" id="p-favoris">
+      <div class="sec">Favoris</div>
+      <div id="favContent"></div>
+    </div>
+
+    <!-- ALERTES -->
+    <div class="panel" id="p-alertes">
+      <div class="sec">Alertes &amp; paramètres</div>
+      <div class="alert-row">
+        <div class="alert-ico" style="background:#fce8e6;"><i class="fa-brands fa-google" style="color:#c0392b;font-size:18px;"></i></div>
+        <div class="alert-inf"><div class="alert-ttl">Bien'ici · alertes email</div><div class="alert-dsc">Lecture auto · no_reply@bienici.com</div></div>
+        <div class="alert-ct">actif</div>
+        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-ico" style="background:var(--brand-light);"><i class="fa-solid fa-map-pin" style="color:var(--brand);font-size:18px;"></i></div>
+        <div class="alert-inf"><div class="alert-ttl">Filtre 4 communes</div><div class="alert-dsc">Sceaux · BLR · Châtenay · Fontenay</div></div>
+        <div class="alert-ct">actif</div>
+        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-ico" style="background:#fdf0e6;"><i class="fa-solid fa-calendar" style="color:#9a4c1a;font-size:18px;"></i></div>
+        <div class="alert-inf"><div class="alert-ttl">Rappel boîtage mensuel</div><div class="alert-dsc">Notification le 1er du mois</div></div>
+        <div class="alert-ct">actif</div>
+        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-ico" style="background:#eaf3de;"><i class="fa-solid fa-bell" style="color:#3b6d11;font-size:18px;"></i></div>
+        <div class="alert-inf"><div class="alert-ttl">Nouveaux biens &lt; 48h</div><div class="alert-dsc">Badge NOUVEAU sur annonces récentes</div></div>
+        <div class="alert-ct">actif</div>
+        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+      </div>
+      <div style="padding:16px 14px;">
+        <div style="background:var(--bg2);border-radius:var(--rl);padding:14px;border:0.5px solid var(--border);">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">📲 Installer comme vraie app</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+            1. Ouvre ce fichier dans <strong>Safari</strong><br>
+            2. Appuie sur <strong>⎙ Partager</strong> (en bas)<br>
+            3. Choisir <strong>"Sur l'écran d'accueil"</strong><br>
+            4. Appuie sur <strong>Ajouter</strong> — c'est fait !
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bnav">
+    <div class="ni on" id="nav-annonces" onclick="goTab('annonces')">
+      <i class="fa-solid fa-house"></i>
+      <span class="nbadge" id="nb-ann">14</span>
+      <span class="ni-lbl">Annonces</span>
+    </div>
+    <div class="ni" id="nav-carte" onclick="goTab('carte')">
+      <i class="fa-solid fa-map"></i>
+      <span class="ni-lbl">Carte</span>
+    </div>
+    <div class="ni" id="nav-boitage" onclick="goTab('boitage')">
+      <i class="fa-solid fa-mailbox"></i>
+      <span class="ni-lbl">Boîtage</span>
+    </div>
+    <div class="ni" id="nav-favoris" onclick="goTab('favoris')">
+      <i class="fa-solid fa-heart"></i>
+      <span class="nbadge" id="nb-fav" style="display:none">0</span>
+      <span class="ni-lbl">Favoris</span>
+    </div>
+    <div class="ni" id="nav-alertes" onclick="goTab('alertes')">
+      <i class="fa-solid fa-gear"></i>
+      <span class="ni-lbl">Alertes</span>
+    </div>
+  </nav>
+</div>
+
+<!-- MODAL -->
+<div id="mwrap" class="mwrap" style="display:none" onclick="bgClose(event)">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mttl">Ajouter un bien</div>
+    <div class="fgrp"><label>Adresse</label><input id="f-addr" placeholder="12 rue Houdan, Sceaux"></div>
+    <div class="frow">
+      <div class="fgrp"><label>Commune</label><select id="f-comm"><option>Sceaux</option><option>Bourg-la-Reine</option><option>Châtenay-Malabry</option><option>Fontenay-aux-Roses</option></select></div>
+      <div class="fgrp"><label>Type</label><select id="f-type"><option>Appartement</option><option>Maison</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="fgrp"><label>Prix (€)</label><input id="f-prix" type="number" placeholder="380000" inputmode="numeric"></div>
+      <div class="fgrp"><label>Surface (m²)</label><input id="f-surf" type="number" placeholder="75" inputmode="numeric"></div>
+    </div>
+    <div class="frow">
+      <div class="fgrp"><label>Pièces</label><input id="f-piec" type="number" placeholder="3" inputmode="numeric"></div>
+      <div class="fgrp"><label>Lien Bien'ici</label><input id="f-lien" placeholder="https://..." type="url"></div>
+    </div>
+    <div class="fgrp"><label>Notes</label><input id="f-note" placeholder="Vis-à-vis, bon état, cave..."></div>
+    <div class="mfooter">
+      <button class="mcancel" onclick="closeModal()">Annuler</button>
+      <button class="mok" onclick="addBien()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- INSTALL GUIDE MODAL -->
+<div id="igwrap" class="mwrap" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mttl">📲 Installer ImmoRadar</div>
+    <div style="font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:16px;">
+      Pour avoir l'appli sur ton écran d'accueil comme une vraie app iPhone :
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+        <div style="font-size:14px;padding-top:4px;">Ouvre ce fichier dans <strong>Safari</strong> (pas Chrome)</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+        <div style="font-size:14px;padding-top:4px;">Appuie sur le bouton <strong>Partager ⎙</strong> en bas de Safari</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+        <div style="font-size:14px;padding-top:4px;">Fais défiler et appuie sur <strong>"Sur l'écran d'accueil"</strong></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+        <div style="font-size:14px;padding-top:4px;">Appuie sur <strong>Ajouter</strong> — ImmoRadar apparaît sur ton écran !</div>
+      </div>
+    </div>
+    <div style="margin-top:20px;background:var(--bg2);border-radius:var(--r);padding:12px;font-size:12px;color:var(--muted);">
+      💡 L'icône ImmoRadar s'affichera avec la maison bleue, comme une vraie app.
+    </div>
+    <div class="mfooter">
+      <button class="mok" onclick="document.getElementById('igwrap').style.display='none'" style="font-size:14px;">Compris !</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COMMUNES=['Sceaux','Bourg-la-Reine','Châtenay-Malabry','Fontenay-aux-Roses'];
+let biens=[
+  {id:1,type:'Appartement',commune:'Sceaux',adresse:'14 rue Houdan',prix:485000,surface:78,pieces:4,age:'2h',isNew:true,lien:'https://www.bienici.com'},
+  {id:2,type:'Maison',commune:'Bourg-la-Reine',adresse:'5 allée des Roses',prix:620000,surface:110,pieces:5,age:'5h',isNew:true,lien:'https://www.bienici.com'},
+  {id:3,type:'Appartement',commune:'Sceaux',adresse:'22 av. du Président Wilson',prix:395000,surface:65,pieces:3,age:'1j',isNew:false,lien:'https://www.bienici.com'},
+  {id:4,type:'Maison',commune:'Châtenay-Malabry',adresse:'3 rue de la Bièvre',prix:755000,surface:145,pieces:6,age:'3h',isNew:true,lien:'https://www.bienici.com'},
+  {id:5,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'11 pl. Eugène Valin',prix:289000,surface:52,pieces:2,age:'4j',isNew:false,lien:'https://www.bienici.com'},
+  {id:6,type:'Appartement',commune:'Bourg-la-Reine',adresse:'33 av. du Gal Leclerc',prix:375000,surface:67,pieces:3,age:'6h',isNew:true,lien:'https://www.bienici.com'},
+  {id:7,type:'Maison',commune:'Sceaux',adresse:'2 voie des Marronniers',prix:870000,surface:160,pieces:7,age:'1j',isNew:false,lien:'https://www.bienici.com'},
+  {id:8,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'27 rue Boucicaut',prix:255000,surface:44,pieces:2,age:'3j',isNew:false,lien:'https://www.bienici.com'},
+  {id:9,type:'Appartement',commune:'Châtenay-Malabry',adresse:'8 rue de la Forêt',prix:340000,surface:58,pieces:3,age:'2j',isNew:false,lien:'https://www.bienici.com'},
+  {id:10,type:'Maison',commune:'Sceaux',adresse:'7 sq. du Parc de Sceaux',prix:1100000,surface:200,pieces:8,age:'5j',isNew:false,lien:'https://www.bienici.com'},
+  {id:11,type:'Appartement',commune:'Bourg-la-Reine',adresse:'19 rue de la Cerisaie',prix:420000,surface:70,pieces:3,age:'4h',isNew:true,lien:'https://www.bienici.com'},
+  {id:12,type:'Appartement',commune:'Sceaux',adresse:'4 rue des Imbergères',prix:310000,surface:55,pieces:2,age:'2j',isNew:false,lien:'https://www.bienici.com'},
+  {id:13,type:'Maison',commune:'Châtenay-Malabry',adresse:'15 av. Louis Breguet',prix:680000,surface:120,pieces:5,age:'1j',isNew:false,lien:'https://www.bienici.com'},
+  {id:14,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'6 rue Pasteur',prix:298000,surface:49,pieces:2,age:'8h',isNew:true,lien:'https://www.bienici.com'},
+];
+const zones=[
+  {nom:'Centre Sceaux',q:'Sceaux',rues:'Rue Houdan, Pl. de la Boule, Av. Wilson',boites:600,km:4.5,h:'09:00'},
+  {nom:'Bourg-la-Reine centre',q:'Bourg-la-Reine',rues:'Av. Gal Leclerc, Rue Cerisaie',boites:700,km:5.2,h:'10:00'},
+  {nom:'Châtenay — La Vallée',q:'Châtenay-Malabry',rues:'Rue de la Bièvre, Av. Louis Breguet',boites:550,km:4.0,h:'11:10'},
+  {nom:'Fontenay-aux-Roses',q:'Fontenay-aux-Roses',rues:'Pl. Eugène Valin, Rue Boucicaut',boites:550,km:4.3,h:'13:00'},
+];
+let favs=new Set();let activeF='Toutes';let freq=1;
+const fmt=p=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(p);
+
+function renderCards(){
+  const d=activeF==='Toutes'?biens:biens.filter(a=>a.commune===activeF);
+  document.getElementById('nb-ann').textContent=biens.length;
+  document.getElementById('cardsList').innerHTML=d.map(a=>`
+    <div class="acard${favs.has(a.id)?' fav':''}" id="c${a.id}">
+      <div class="acard-img">
+        <i class="fa-solid ${a.type==='Maison'?'fa-house-chimney':'fa-building'}"></i>
+        <div class="src-tag">Bien'ici</div>
+        ${a.isNew?'<div class="new-tag">NOUVEAU</div>':''}
+      </div>
+      <div class="acard-body">
+        <div class="aprix">${fmt(a.prix)}</div>
+        <div class="asub">${a.commune} · ${a.adresse} · il y a ${a.age}</div>
+        <div class="atags">
+          <span class="tag">${a.surface} m²</span>
+          <span class="tag">${a.pieces} p.</span>
+          <span class="tag${a.type==='Maison'?' o':''}">${a.type}</span>
+        </div>
+        <div class="actas">
+          <button class="acta${favs.has(a.id)?' fav-on':''}" onclick="togFav(${a.id})">
+            <i class="fa-${favs.has(a.id)?'solid':'regular'} fa-heart"></i>${favs.has(a.id)?'Favori':'Favori'}
+          </button>
+          <a href="${a.lien}" class="acta" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i>Voir</a>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function togFav(id){
+  favs.has(id)?favs.delete(id):favs.add(id);
+  const nb=document.getElementById('nb-fav');
+  nb.textContent=favs.size;nb.style.display=favs.size?'inline':'none';
+  renderCards();renderFavs();
+}
+function renderFavs(){
+  const fl=biens.filter(a=>favs.has(a.id));
+  document.getElementById('favContent').innerHTML=fl.length?
+    '<div class="cards">'+fl.map(a=>`<div class="acard fav"><div class="acard-body"><div class="aprix">${fmt(a.prix)}</div><div class="asub">${a.commune} · ${a.adresse}</div><div class="atags"><span class="tag">${a.surface} m²</span><span class="tag">${a.pieces} p.</span></div><div class="actas"><button class="acta fav-on" onclick="togFav(${a.id})"><i class="fa-solid fa-heart"></i>Retirer</button><a href="${a.lien}" class="acta" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i>Voir</a></div></div></div>`).join('')+'</div>'
+    :'<div class="fav-empty"><i class="fa-regular fa-heart"></i><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Aucun favori</div><div style="font-size:13px">Appuie sur ♡ sur une annonce</div></div>';
+}
+function renderBoitage(){
+  const f=freq;
+  document.getElementById('boitageStops').innerHTML=zones.map((z,i)=>`
+    <div class="stop">
+      <div class="stopn">${i+1}</div>
+      <div class="stop-inf">
+        <div class="stop-addr">${z.nom}</div>
+        <div class="stop-dtl">${z.rues}</div>
+        <div class="stop-meta">
+          <span><i class="fa-solid fa-mailbox" style="font-size:10px;"></i> ${f===2?Math.round(z.boites/2):z.boites} boîtes</span>
+          <span><i class="fa-solid fa-car" style="font-size:10px;"></i> ${z.km} km</span>
+        </div>
+      </div>
+      <div class="stop-t">${z.h}</div>
+    </div>`).join('');
+  const tb=zones.reduce((s,z)=>s+(f===2?Math.round(z.boites/2):z.boites),0);
+  document.getElementById('t-boites').textContent=tb.toLocaleString('fr-FR');
+  document.getElementById('t-dur').textContent=f===1?'2h30':'1h15';
+}
+function setFreq(f){
+  freq=f;
+  document.getElementById('freq1').className='freq-btn'+(f===1?' on':'');
+  document.getElementById('freq2').className='freq-btn'+(f===2?' on':'');
+  renderBoitage();
+}
+function filterC(v,el){
+  activeF=v;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');renderCards();
+}
+function goTab(t){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('p-'+t).classList.add('on');
+  document.getElementById('nav-'+t).classList.add('on');
+  document.getElementById('scroll').scrollTop=0;
+  if(t==='carte')renderMap();
+}
+function renderMap(){
+  const pos=[{n:'Sceaux',x:200,y:175},{n:'Bourg-la-Reine',x:252,y:132},{n:'Châtenay-Malabry',x:145,y:205},{n:'Fontenay-aux-Roses',x:188,y:118}];
+  let pins='';
+  biens.forEach(a=>{
+    const c=pos.find(x=>x.n===a.commune);if(!c)return;
+    const ox=(Math.random()-.5)*28,oy=(Math.random()-.5)*22;
+    pins+=`<circle cx="${+(c.x+ox).toFixed(1)}" cy="${+(c.y+oy).toFixed(1)}" r="${favs.has(a.id)?9:7}" fill="${a.type==='Maison'?'#e07b3a':'#1a4a6b'}" stroke="#fff" stroke-width="1.5"/>`;
+  });
+  document.getElementById('mapSvg').innerHTML=`
+    <rect width="360" height="300" fill="#dce8f0"/>
+    ${pos.map(c=>`<ellipse cx="${c.x}" cy="${c.y}" rx="34" ry="22" fill="#b8cfe0" stroke="#8aafc0" stroke-width="0.5" opacity=".75"/><text x="${c.x}" y="${c.y+4}" text-anchor="middle" font-size="9" fill="#1a4a6b" font-weight="600" font-family="DM Sans,sans-serif">${c.n}</text>`).join('')}${pins}
+    <text x="180" y="15" text-anchor="middle" font-size="9" fill="#1a4a6b" opacity=".5" font-family="DM Sans,sans-serif">Hauts-de-Seine Sud · 4 communes</text>`;
+}
+function tog(el){el.classList.toggle('off');}
+async function doSync(){
+  const ico=document.getElementById('syncIco');
+  const banner=document.getElementById('syncBanner');
+  const msg=document.getElementById('syncMsg');
+  ico.style.animation='spin 1s linear infinite';
+  banner.className='banner warn';
+  msg.textContent="Lecture des alertes Bien'ici…";
+  await new Promise(r=>setTimeout(r,1200));
+  ico.style.animation='';
+  banner.className='banner ok';
+  msg.textContent="Bien'ici · "+biens.length+" annonces actives · à jour";
+}
+function openGMaps(){window.open('https://www.google.com/maps/search/immobilier+sceaux+bourg-la-reine+chatenay+fontenay/@48.77,2.28,13z','_blank');}
+function openBoitageRoute(){
+  const s=zones.map(z=>encodeURIComponent(z.q+', France')).join('/');
+  window.open('https://www.google.com/maps/dir/'+s,'_blank');
+}
+function showInstallGuide(){document.getElementById('igwrap').style.display='flex';}
+function openModal(){document.getElementById('mwrap').style.display='flex';}
+function closeModal(){document.getElementById('mwrap').style.display='none';}
+function bgClose(e){if(e.target===document.getElementById('mwrap'))closeModal();}
+function addBien(){
+  const addr=document.getElementById('f-addr').value;
+  if(!addr){alert('Merci d\'entrer une adresse.');return;}
+  biens.unshift({id:Date.now(),type:document.getElementById('f-type').value,commune:document.getElementById('f-comm').value,adresse:addr,prix:parseInt(document.getElementById('f-prix').value)||0,surface:parseInt(document.getElementById('f-surf').value)||0,pieces:parseInt(document.getElementById('f-piec').value)||0,age:'maintenant',isNew:true,lien:document.getElementById('f-lien').value||'https://www.bienici.com'});
+  closeModal();renderCards();
+}
+const st=document.createElement('style');
+st.textContent='@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
+document.head.appendChild(st);
+renderCards();renderBoitage();renderFavs();
+</script>
+</body>
+</html>
