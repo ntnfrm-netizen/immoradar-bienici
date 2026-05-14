@@ -10,7 +10,7 @@
     "get-token": "node scripts/get-refresh-token.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
+    "@google/genai": "^1.52.0",
     "@netlify/blobs": "^8.1.0",
     "@netlify/functions": "^2.8.2",
     "googleapis": "^144.0.0"

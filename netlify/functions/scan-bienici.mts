@@ -13,7 +13,7 @@
 import type { Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 import { google } from "googleapis";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 // ─── Constantes métier ──────────────────────────────────────────────
 const TARGET_COMMUNES = [
@@ -149,19 +149,19 @@ async function extractWithGemini(emailText: string): Promise<any[]> {
   const apiKey = env("GEMINI_API_KEY");
   if (!apiKey) throw new Error("GEMINI_API_KEY manquante");
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    generationConfig: {
+  const ai = new GoogleGenAI({ apiKey });
+
+  // On tronque pour rester sous la limite de tokens (les emails Bien'ici sont rarement >50k chars)
+  const truncated = emailText.slice(0, 60_000);
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: GEMINI_PROMPT + truncated,
+    config: {
       temperature: 0.1,
       responseMimeType: "application/json",
     },
   });
-
-  // On tronque pour rester sous la limite de tokens (les emails Bien'ici sont rarement >50k chars)
-  const truncated = emailText.slice(0, 60_000);
-  const result = await model.generateContent(GEMINI_PROMPT + truncated);
-  const text = result.response.text();
+  const text = result.text ?? "";
 
   try {
     const parsed = JSON.parse(text);

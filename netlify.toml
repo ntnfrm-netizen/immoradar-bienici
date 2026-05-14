@@ -9,7 +9,7 @@
 [functions]
   node_bundler = "esbuild"
   # Modules exclus du bundle (résolus à l'exécution sur Netlify)
-  external_node_modules = ["googleapis", "@google/generative-ai", "@netlify/blobs"]
+  external_node_modules = ["googleapis", "@google/genai", "@netlify/blobs"]
 
 [functions."scan-bienici"]
   # Cron Netlify natif : toutes les 15 minutes
