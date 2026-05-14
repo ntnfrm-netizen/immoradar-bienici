@@ -35,7 +35,7 @@ Sync auto Gmail → Gemini → ImmoRadar toutes les 15 minutes, hébergée sur N
    - Scopes : ajouter `gmail.readonly`
    - Test users : ajouter l'email de Marie Astrid
 5. **APIs & Services → Credentials → Create credentials → OAuth Client ID** :
-   - Application type : **Desktop**
+   - Application type : **Desktop** (Application de bureau) — surtout PAS "Web", le flow loopback du script l'exige
    - Name : ImmoRadar CLI
 6. Télécharger / copier :
    - `Client ID` → `GMAIL_CLIENT_ID`
@@ -54,9 +54,14 @@ npm install
 npm run get-token
 ```
 
-Le script affiche une URL → l'ouvrir dans le navigateur → **se connecter avec le compte Marie Astrid** → autoriser → coller le code `4/...` dans le terminal.
+Le script ouvre automatiquement le navigateur (flow "loopback" : un mini-serveur
+local sur `http://localhost:4280` capture le code, aucun copier-coller).
+→ **Se connecter avec le compte Gmail de Marie Astrid** → autoriser.
 
-Le `GMAIL_REFRESH_TOKEN` s'affiche. **Le copier.**
+Le `GMAIL_REFRESH_TOKEN` s'affiche dans le terminal. **Le copier.**
+
+> ⚠️ Le client OAuth DOIT être de type "Application de bureau". Un client
+> "Application Web" ferait échouer le flow loopback (erreur `redirect_uri_mismatch`).
 
 ---
 

@@ -39,6 +39,14 @@ const COMMUNE_NORMALIZE: Record<string, string> = {
 // Query Gmail : emails Bien'ici des dernières 24h
 const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:1d";
 
+// Lecture d'une variable d'env, nettoyée des espaces et guillemets parasites
+// (évite les erreurs invalid_client dues à un copier-coller imparfait)
+function env(name: string): string {
+  const raw = process.env[name];
+  if (!raw) return "";
+  return raw.trim().replace(/^["']|["']$/g, "").trim();
+}
+
 // ─── Types ──────────────────────────────────────────────────────────
 type Listing = {
   id: string;
@@ -138,7 +146,7 @@ Contenu de l'email :
 `;
 
 async function extractWithGemini(emailText: string): Promise<any[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = env("GEMINI_API_KEY");
   if (!apiKey) throw new Error("GEMINI_API_KEY manquante");
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -171,11 +179,17 @@ export default async (_req: Request) => {
 
   try {
     // 1. Auth Gmail OAuth
-    const oauth2 = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET
-    );
-    oauth2.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+    const clientId = env("GMAIL_CLIENT_ID");
+    const clientSecret = env("GMAIL_CLIENT_SECRET");
+    const refreshToken = env("GMAIL_REFRESH_TOKEN");
+    if (!clientId || !clientSecret || !refreshToken) {
+      throw new Error(
+        "Variables Gmail manquantes (GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN)"
+      );
+    }
+
+    const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2.setCredentials({ refresh_token: refreshToken });
 
     const gmail = google.gmail({ version: "v1", auth: oauth2 });
 
