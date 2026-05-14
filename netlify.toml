@@ -1,0 +1,30 @@
+# ImmoRadar — configuration Netlify
+# ─────────────────────────────────
+# Frontend statique (index.html à la racine) + 2 Functions Node 20
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  # Modules exclus du bundle (résolus à l'exécution sur Netlify)
+  external_node_modules = ["googleapis", "@google/generative-ai", "@netlify/blobs"]
+
+[functions."scan-bienici"]
+  # Cron Netlify natif : toutes les 15 minutes
+  schedule = "*/15 * * * *"
+
+# Headers de sécurité côté frontend
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# CORS ouvert sur l'endpoint public de lecture des annonces
+[[headers]]
+  for = "/.netlify/functions/get-listings"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=60"

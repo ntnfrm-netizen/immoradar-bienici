@@ -14,18 +14,18 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
-  --brand:#1a4a6b;--brand2:#153d5a;--brand-light:#e8f0f7;
-  --accent:#e07b3a;--accent-light:#fdf0e6;
-  --ok:#2d7d52;--ok-light:#e8f5ee;
-  --bg:#ffffff;--bg2:#f5f5f7;--bg3:#ebebed;
-  --text:#1c1c1e;--muted:#6e6e73;--border:#d1d1d6;
-  --r:10px;--rl:14px;
-  --ff:'DM Sans',sans-serif;--fd:'Playfair Display',serif;
-  --safe-top:env(safe-area-inset-top,0px);
-  --safe-bot:env(safe-area-inset-bottom,0px);
+--brand:#1a4a6b;--brand2:#153d5a;--brand-light:#e8f0f7;
+--accent:#e07b3a;--accent-light:#fdf0e6;
+--ok:#2d7d52;--ok-light:#e8f5ee;
+--bg:#ffffff;--bg2:#f5f5f7;--bg3:#ebebed;
+--text:#1c1c1e;--muted:#6e6e73;--border:#d1d1d6;
+--r:10px;--rl:14px;
+--ff:'DM Sans',sans-serif;--fd:'Playfair Display',serif;
+--safe-top:env(safe-area-inset-top,0px);
+--safe-bot:env(safe-area-inset-bottom,0px);
 }
 @media(prefers-color-scheme:dark){
-  :root{--bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;--text:#f2f2f7;--muted:#8e8e93;--border:#38383a;--brand-light:#1c2e3d;--accent-light:#2d1e10;}
+:root{--bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;--text:#f2f2f7;--muted:#8e8e93;--border:#38383a;--brand-light:#1c2e3d;--accent-light:#2d1e10;}
 }
 html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);background:var(--bg);}
 .app{display:flex;flex-direction:column;height:100%;padding-top:var(--safe-top);}
@@ -54,6 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);ba
 .banner.ok{background:var(--ok-light);color:var(--ok);}
 .banner.warn{background:#fdf0e6;color:#b35c1e;}
 .banner.real{background:#e8f0f7;color:#1a4a6b;}
+.banner.err{background:#fde8e8;color:#a02020;}
 .chips{padding:10px 14px 4px;overflow-x:auto;white-space:nowrap;display:flex;gap:6px;}
 .chips::-webkit-scrollbar{display:none;}
 .chip{font-size:13px;padding:6px 13px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font-family:var(--ff);white-space:nowrap;}
@@ -129,312 +130,445 @@ html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);ba
 </head>
 <body>
 <div class="app">
-  <div class="hdr">
-    <div class="brand">
-      <div class="brand-ico"><i class="fa-solid fa-house-chimney-window"></i></div>
-      <div>
-        <div class="brand-name">ImmoRadar</div>
-        <div class="brand-sub">Marie-Astrid · IAD · Sceaux 92</div>
-      </div>
-    </div>
-    <div class="hdr-r">
-      <div class="hbtn" id="syncBtn" onclick="doSync()"><i class="fa-solid fa-rotate" id="syncIco"></i></div>
-      <button class="pbtn" onclick="openModal()"><i class="fa-solid fa-plus"></i> Bien</button>
-    </div>
-  </div>
-
-  <div class="scroll" id="scroll">
-
-    <!-- ANNONCES -->
-    <div class="panel on" id="p-annonces">
-      <div class="banner real" id="syncBanner">
-        <i class="fa-solid fa-satellite-dish"></i>
-        <span id="syncMsg">3 vraies annonces Bien'ici · Agence du Château 92 · 07/05/2026</span>
-      </div>
-      <div class="chips">
-        <button class="chip on" onclick="filterC('Toutes',this)">Toutes</button>
-        <button class="chip" onclick="filterC('Sceaux',this)">Sceaux</button>
-        <button class="chip" onclick="filterC('Bourg-la-Reine',this)">Bourg-la-Reine</button>
-        <button class="chip" onclick="filterC('Châtenay-Malabry',this)">Châtenay-Malabry</button>
-        <button class="chip" onclick="filterC('Fontenay-aux-Roses',this)">Fontenay-aux-Roses</button>
-      </div>
-      <div class="cards" id="cardsList"></div>
-    </div>
-
-    <!-- CARTE -->
-    <div class="panel" id="p-carte">
-      <div class="sec">Carte des biens</div>
-      <div class="map-wrap">
-        <svg id="mapSvg" width="100%" viewBox="0 0 360 300" style="display:block;background:#dce8f0;"></svg>
-      </div>
-      <div class="map-actions">
-        <button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="openGMaps()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Google Maps</button>
-        <button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="goTab('boitage')"><i class="fa-solid fa-route"></i> Planifier boîtage</button>
-      </div>
-    </div>
-
-    <!-- BOITAGE -->
-    <div class="panel" id="p-boitage">
-      <div class="sec">Tournée boîtage</div>
-      <div class="freq-row">
-        <button class="freq-btn on" id="freq1" onclick="setFreq(1)">1× par mois</button>
-        <button class="freq-btn" id="freq2" onclick="setFreq(2)">2× par mois</button>
-      </div>
-      <div class="tstats">
-        <div class="tstat"><div class="tstat-v">4</div><div class="tstat-l">quartiers</div></div>
-        <div class="tstat"><div class="tstat-v" id="t-boites">2 400</div><div class="tstat-l">boîtes aux lettres</div></div>
-        <div class="tstat"><div class="tstat-v">18 km</div><div class="tstat-l">en voiture</div></div>
-        <div class="tstat"><div class="tstat-v" id="t-dur">2h30</div><div class="tstat-l">durée estimée</div></div>
-      </div>
-      <div class="stops" id="boitageStops"></div>
-      <div class="add-zone"><i class="fa-solid fa-plus"></i> Ajouter un quartier</div>
-      <button class="maps-btn" onclick="openBoitageRoute()"><i class="fa-solid fa-map-pin"></i> Démarrer dans Google Maps</button>
-    </div>
-
-    <!-- FAVORIS -->
-    <div class="panel" id="p-favoris">
-      <div class="sec">Favoris</div>
-      <div id="favContent"></div>
-    </div>
-
-    <!-- ALERTES -->
-    <div class="panel" id="p-alertes">
-      <div class="sec">Alertes &amp; paramètres</div>
-      <div class="alert-row">
-        <div class="alert-ico" style="background:#fce8e6;"><i class="fa-brands fa-google" style="color:#c0392b;font-size:18px;"></i></div>
-        <div class="alert-inf"><div class="alert-ttl">Bien'ici · alertes email</div><div class="alert-dsc">no_reply@bienici.com · Gmail connecté</div></div>
-        <div class="alert-ct">actif</div>
-        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
-      </div>
-      <div class="alert-row">
-        <div class="alert-ico" style="background:var(--brand-light);"><i class="fa-solid fa-map-pin" style="color:var(--brand);font-size:18px;"></i></div>
-        <div class="alert-inf"><div class="alert-ttl">Filtre 4 communes</div><div class="alert-dsc">Sceaux · BLR · Châtenay · Fontenay</div></div>
-        <div class="alert-ct">actif</div>
-        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
-      </div>
-      <div class="alert-row">
-        <div class="alert-ico" style="background:#fdf0e6;"><i class="fa-solid fa-calendar" style="color:#9a4c1a;font-size:18px;"></i></div>
-        <div class="alert-inf"><div class="alert-ttl">Rappel boîtage mensuel</div><div class="alert-dsc">Notification le 1er du mois</div></div>
-        <div class="alert-ct">actif</div>
-        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
-      </div>
-      <div class="alert-row">
-        <div class="alert-ico" style="background:#eaf3de;"><i class="fa-solid fa-bell" style="color:#3b6d11;font-size:18px;"></i></div>
-        <div class="alert-inf"><div class="alert-ttl">Nouveaux biens &lt; 48h</div><div class="alert-dsc">Badge NOUVEAU sur annonces récentes</div></div>
-        <div class="alert-ct">actif</div>
-        <div class="tog" onclick="tog(this)"><div class="togk"></div></div>
-      </div>
-      <div style="padding:16px 14px;">
-        <div style="background:var(--bg2);border-radius:var(--rl);padding:14px;border:0.5px solid var(--border);">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px;"><i class="fa-solid fa-circle-info" style="color:var(--brand)"></i> Mise à jour des annonces</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.7;">
-            Pour actualiser avec les vraies annonces Bien'ici, ouvre <strong>Claude.ai</strong> sur iPhone, retrouve cette conversation et demande une mise à jour. Les nouvelles annonces seront intégrées dans un nouveau fichier à uploader sur GitHub.
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <nav class="bnav">
-    <div class="ni on" id="nav-annonces" onclick="goTab('annonces')">
-      <i class="fa-solid fa-house"></i>
-      <span class="nbadge" id="nb-ann">17</span>
-      <span class="ni-lbl">Annonces</span>
-    </div>
-    <div class="ni" id="nav-carte" onclick="goTab('carte')">
-      <i class="fa-solid fa-map"></i>
-      <span class="ni-lbl">Carte</span>
-    </div>
-    <div class="ni" id="nav-boitage" onclick="goTab('boitage')">
-      <i class="fa-solid fa-mailbox"></i>
-      <span class="ni-lbl">Boîtage</span>
-    </div>
-    <div class="ni" id="nav-favoris" onclick="goTab('favoris')">
-      <i class="fa-solid fa-heart"></i>
-      <span class="nbadge" id="nb-fav" style="display:none">0</span>
-      <span class="ni-lbl">Favoris</span>
-    </div>
-    <div class="ni" id="nav-alertes" onclick="goTab('alertes')">
-      <i class="fa-solid fa-gear"></i>
-      <span class="ni-lbl">Alertes</span>
-    </div>
-  </nav>
+<div class="hdr">
+<div class="brand">
+<div class="brand-ico"><i class="fa-solid fa-house-chimney-window"></i></div>
+<div>
+<div class="brand-name">ImmoRadar</div>
+<div class="brand-sub">Marie-Astrid · IAD · Sceaux 92</div>
 </div>
-
+</div>
+<div class="hdr-r">
+<div class="hbtn" id="syncBtn" onclick="doSync()"><i class="fa-solid fa-rotate" id="syncIco"></i></div>
+<button class="pbtn" onclick="openModal()"><i class="fa-solid fa-plus"></i> Bien</button>
+</div>
+</div>
+<div class="scroll" id="scroll">
+<!-- ANNONCES -->
+<div class="panel on" id="p-annonces">
+<div class="banner real" id="syncBanner">
+<i class="fa-solid fa-satellite-dish"></i>
+<span id="syncMsg">Chargement des annonces…</span>
+</div>
+<div class="chips">
+<button class="chip on" onclick="filterC('Toutes',this)">Toutes</button>
+<button class="chip" onclick="filterC('Sceaux',this)">Sceaux</button>
+<button class="chip" onclick="filterC('Bourg-la-Reine',this)">Bourg-la-Reine</button>
+<button class="chip" onclick="filterC('Châtenay-Malabry',this)">Châtenay-Malabry</button>
+<button class="chip" onclick="filterC('Fontenay-aux-Roses',this)">Fontenay-aux-Roses</button>
+</div>
+<div class="cards" id="cardsList"></div>
+</div>
+<!-- CARTE -->
+<div class="panel" id="p-carte">
+<div class="sec">Carte des biens</div>
+<div class="map-wrap">
+<svg id="mapSvg" width="100%" viewBox="0 0 360 300" style="display:block;background:#dce8f0;"></svg>
+</div>
+<div class="map-actions">
+<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="openGMaps()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Google Maps</button>
+<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="goTab('boitage')"><i class="fa-solid fa-route"></i> Planifier boîtage</button>
+</div>
+</div>
+<!-- BOITAGE -->
+<div class="panel" id="p-boitage">
+<div class="sec">Tournée boîtage</div>
+<div class="freq-row">
+<button class="freq-btn on" id="freq1" onclick="setFreq(1)">1× par mois</button>
+<button class="freq-btn" id="freq2" onclick="setFreq(2)">2× par mois</button>
+</div>
+<div class="tstats">
+<div class="tstat"><div class="tstat-v">4</div><div class="tstat-l">quartiers</div></div>
+<div class="tstat"><div class="tstat-v" id="t-boites">2 400</div><div class="tstat-l">boîtes aux lettres</div></div>
+<div class="tstat"><div class="tstat-v">18 km</div><div class="tstat-l">en voiture</div></div>
+<div class="tstat"><div class="tstat-v" id="t-dur">2h30</div><div class="tstat-l">durée estimée</div></div>
+</div>
+<div class="stops" id="boitageStops"></div>
+<div class="add-zone"><i class="fa-solid fa-plus"></i> Ajouter un quartier</div>
+<button class="maps-btn" onclick="openBoitageRoute()"><i class="fa-solid fa-map-pin"></i> Démarrer dans Google Maps</button>
+</div>
+<!-- FAVORIS -->
+<div class="panel" id="p-favoris">
+<div class="sec">Favoris</div>
+<div id="favContent"></div>
+</div>
+<!-- ALERTES -->
+<div class="panel" id="p-alertes">
+<div class="sec">Alertes &amp; paramètres</div>
+<div class="alert-row">
+<div class="alert-ico" style="background:#fce8e6;"><i class="fa-brands fa-google" style="color:#c0392b;font-size:18px;"></i></div>
+<div class="alert-inf"><div class="alert-ttl">Bien'ici · alertes email</div><div class="alert-dsc">no_reply@bienici.com · Gmail connecté</div></div>
+<div class="alert-ct">actif</div>
+<div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+</div>
+<div class="alert-row">
+<div class="alert-ico" style="background:var(--brand-light);"><i class="fa-solid fa-map-pin" style="color:var(--brand);font-size:18px;"></i></div>
+<div class="alert-inf"><div class="alert-ttl">Filtre 4 communes</div><div class="alert-dsc">Sceaux · BLR · Châtenay · Fontenay</div></div>
+<div class="alert-ct">actif</div>
+<div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+</div>
+<div class="alert-row">
+<div class="alert-ico" style="background:#fdf0e6;"><i class="fa-solid fa-calendar" style="color:#9a4c1a;font-size:18px;"></i></div>
+<div class="alert-inf"><div class="alert-ttl">Rappel boîtage mensuel</div><div class="alert-dsc">Notification le 1er du mois</div></div>
+<div class="alert-ct">actif</div>
+<div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+</div>
+<div class="alert-row">
+<div class="alert-ico" style="background:#eaf3de;"><i class="fa-solid fa-bell" style="color:#3b6d11;font-size:18px;"></i></div>
+<div class="alert-inf"><div class="alert-ttl">Nouveaux biens &lt; 48h</div><div class="alert-dsc">Badge NOUVEAU sur annonces récentes</div></div>
+<div class="alert-ct">actif</div>
+<div class="tog" onclick="tog(this)"><div class="togk"></div></div>
+</div>
+<div style="padding:16px 14px;">
+<div style="background:var(--bg2);border-radius:var(--rl);padding:14px;border:0.5px solid var(--border);">
+<div style="font-size:13px;font-weight:600;margin-bottom:8px;"><i class="fa-solid fa-circle-info" style="color:var(--brand)"></i> Synchronisation automatique</div>
+<div style="font-size:12px;color:var(--muted);line-height:1.7;">
+Gmail est scanné <strong>toutes les 15 minutes</strong> par une fonction Netlify. Les emails Bien'ici sont analysés par Gemini AI puis filtrés sur les 4 communes cibles. Les nouvelles annonces apparaissent automatiquement ici sans aucune manipulation.
+</div>
+</div>
+</div>
+</div>
+</div>
+<nav class="bnav">
+<div class="ni on" id="nav-annonces" onclick="goTab('annonces')">
+<i class="fa-solid fa-house"></i>
+<span class="nbadge" id="nb-ann">0</span>
+<span class="ni-lbl">Annonces</span>
+</div>
+<div class="ni" id="nav-carte" onclick="goTab('carte')">
+<i class="fa-solid fa-map"></i>
+<span class="ni-lbl">Carte</span>
+</div>
+<div class="ni" id="nav-boitage" onclick="goTab('boitage')">
+<i class="fa-solid fa-mailbox"></i>
+<span class="ni-lbl">Boîtage</span>
+</div>
+<div class="ni" id="nav-favoris" onclick="goTab('favoris')">
+<i class="fa-solid fa-heart"></i>
+<span class="nbadge" id="nb-fav" style="display:none">0</span>
+<span class="ni-lbl">Favoris</span>
+</div>
+<div class="ni" id="nav-alertes" onclick="goTab('alertes')">
+<i class="fa-solid fa-gear"></i>
+<span class="ni-lbl">Alertes</span>
+</div>
+</nav>
+</div>
 <div id="mwrap" class="mwrap" style="display:none" onclick="bgClose(event)">
-  <div class="msheet">
-    <div class="mhandle"></div>
-    <div class="mttl">Ajouter un bien</div>
-    <div class="fgrp"><label>Adresse</label><input id="f-addr" placeholder="12 rue Houdan, Sceaux"></div>
-    <div class="frow">
-      <div class="fgrp"><label>Commune</label><select id="f-comm"><option>Sceaux</option><option>Bourg-la-Reine</option><option>Châtenay-Malabry</option><option>Fontenay-aux-Roses</option></select></div>
-      <div class="fgrp"><label>Type</label><select id="f-type"><option>Appartement</option><option>Maison</option></select></div>
-    </div>
-    <div class="frow">
-      <div class="fgrp"><label>Prix (€)</label><input id="f-prix" type="number" placeholder="380000" inputmode="numeric"></div>
-      <div class="fgrp"><label>Surface (m²)</label><input id="f-surf" type="number" placeholder="75" inputmode="numeric"></div>
-    </div>
-    <div class="frow">
-      <div class="fgrp"><label>Pièces</label><input id="f-piec" type="number" placeholder="3" inputmode="numeric"></div>
-      <div class="fgrp"><label>Lien Bien'ici</label><input id="f-lien" placeholder="https://..." type="url"></div>
-    </div>
-    <div class="mfooter">
-      <button class="mcancel" onclick="closeModal()">Annuler</button>
-      <button class="mok" onclick="addBien()">Ajouter</button>
-    </div>
-  </div>
+<div class="msheet">
+<div class="mhandle"></div>
+<div class="mttl">Ajouter un bien</div>
+<div class="fgrp"><label>Adresse</label><input id="f-addr" placeholder="12 rue Houdan, Sceaux"></div>
+<div class="frow">
+<div class="fgrp"><label>Commune</label><select id="f-comm"><option>Sceaux</option><option>Bourg-la-Reine</option><option>Châtenay-Malabry</option><option>Fontenay-aux-Roses</option></select></div>
+<div class="fgrp"><label>Type</label><select id="f-type"><option>Appartement</option><option>Maison</option></select></div>
 </div>
-
+<div class="frow">
+<div class="fgrp"><label>Prix (€)</label><input id="f-prix" type="number" placeholder="380000" inputmode="numeric"></div>
+<div class="fgrp"><label>Surface (m²)</label><input id="f-surf" type="number" placeholder="75" inputmode="numeric"></div>
+</div>
+<div class="frow">
+<div class="fgrp"><label>Pièces</label><input id="f-piec" type="number" placeholder="3" inputmode="numeric"></div>
+<div class="fgrp"><label>Lien Bien'ici</label><input id="f-lien" placeholder="https://..." type="url"></div>
+</div>
+<div class="mfooter">
+<button class="mcancel" onclick="closeModal()">Annuler</button>
+<button class="mok" onclick="addBien()">Ajouter</button>
+</div>
+</div>
+</div>
 <script>
-const COMMUNES=['Sceaux','Bourg-la-Reine','Châtenay-Malabry','Fontenay-aux-Roses'];
-const zones=[
+// ─────────────────────────────────────────────────────────
+// ImmoRadar v2 — données chargées dynamiquement depuis
+// /.netlify/functions/get-listings (mis à jour toutes les
+// 15 min par scan-bienici qui scanne Gmail + appelle Gemini)
+// ─────────────────────────────────────────────────────────
+
+const COMMUNES = ['Sceaux','Bourg-la-Reine','Châtenay-Malabry','Fontenay-aux-Roses'];
+const SYNC_ENDPOINT = '/.netlify/functions/get-listings';
+const LS_FAVS = 'immoradar_favs_v2';
+const LS_MANUAL = 'immoradar_manual_v2';
+const LS_CACHE = 'immoradar_cache_v2';
+
+const zones = [
   {nom:'Centre Sceaux',q:'Sceaux',rues:'Rue Houdan, Pl. de la Boule, Av. Wilson',boites:600,km:4.5,h:'09:00'},
   {nom:'Bourg-la-Reine centre',q:'Bourg-la-Reine',rues:'Av. Gal Leclerc, Rue Cerisaie',boites:700,km:5.2,h:'10:00'},
   {nom:'Châtenay — La Vallée',q:'Châtenay-Malabry',rues:'Rue de la Bièvre, Av. Louis Breguet',boites:550,km:4.0,h:'11:10'},
   {nom:'Fontenay-aux-Roses',q:'Fontenay-aux-Roses',rues:'Pl. Eugène Valin, Rue Boucicaut',boites:550,km:4.3,h:'13:00'},
 ];
 
-let biens=[
-  // ── VRAIES ANNONCES BIENICI · 07/05/2026 · Agence du Château 92 ──
-  {id:101,type:'Maison',commune:'Sceaux',adresse:'92330 Sceaux',prix:890000,surface:100,pieces:5,age:'aujourd\'hui',isNew:true,real:true,exclu:true,lien:'https://www.bienici.com/annonce/hektor-agencechateau92-2'},
-  {id:102,type:'Appartement',commune:'Châtenay-Malabry',adresse:'92290 Châtenay-Malabry',prix:359000,surface:79,pieces:5,age:'aujourd\'hui',isNew:true,real:true,exclu:true,lien:'https://www.bienici.com/annonce/hektor-agencechateau92-28'},
-  {id:103,type:'Appartement',commune:'Sceaux',adresse:'92330 Sceaux',prix:755000,surface:108,pieces:4,age:'aujourd\'hui',isNew:true,real:true,exclu:false,lien:'https://www.bienici.com/annonce/hektor-agencechateau92-9'},
-  // ── ANNONCES DE VEILLE ──
-  {id:1,type:'Appartement',commune:'Sceaux',adresse:'14 rue Houdan',prix:485000,surface:78,pieces:4,age:'2j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:2,type:'Maison',commune:'Bourg-la-Reine',adresse:'5 allée des Roses',prix:620000,surface:110,pieces:5,age:'3j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:3,type:'Appartement',commune:'Sceaux',adresse:'22 av. du Président Wilson',prix:395000,surface:65,pieces:3,age:'4j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:4,type:'Maison',commune:'Châtenay-Malabry',adresse:'3 rue de la Bièvre',prix:755000,surface:145,pieces:6,age:'4j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:5,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'11 pl. Eugène Valin',prix:289000,surface:52,pieces:2,age:'5j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:6,type:'Appartement',commune:'Bourg-la-Reine',adresse:'33 av. du Gal Leclerc',prix:375000,surface:67,pieces:3,age:'5j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:7,type:'Maison',commune:'Sceaux',adresse:'2 voie des Marronniers',prix:870000,surface:160,pieces:7,age:'6j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:8,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'27 rue Boucicaut',prix:255000,surface:44,pieces:2,age:'6j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:9,type:'Appartement',commune:'Châtenay-Malabry',adresse:'8 rue de la Forêt',prix:340000,surface:58,pieces:3,age:'7j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:10,type:'Maison',commune:'Sceaux',adresse:'7 sq. du Parc de Sceaux',prix:1100000,surface:200,pieces:8,age:'7j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:11,type:'Appartement',commune:'Bourg-la-Reine',adresse:'19 rue de la Cerisaie',prix:420000,surface:70,pieces:3,age:'8j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:12,type:'Appartement',commune:'Sceaux',adresse:'4 rue des Imbergères',prix:310000,surface:55,pieces:2,age:'8j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:13,type:'Maison',commune:'Châtenay-Malabry',adresse:'15 av. Louis Breguet',prix:680000,surface:120,pieces:5,age:'9j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
-  {id:14,type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'6 rue Pasteur',prix:298000,surface:49,pieces:2,age:'9j',isNew:false,real:false,exclu:false,lien:'https://www.bienici.com'},
+// Annonces de veille (fallback statique si le fetch échoue ou est vide)
+// Liens uniques (avec fragment) pour éviter la dédup par URL
+const SEED_DEMO = [
+  {id:'demo-1',type:'Appartement',commune:'Sceaux',adresse:'14 rue Houdan',prix:485000,surface:78,pieces:4,emailDate:null,real:false,lien:'https://www.bienici.com/#demo-1'},
+  {id:'demo-2',type:'Maison',commune:'Bourg-la-Reine',adresse:'5 allée des Roses',prix:620000,surface:110,pieces:5,emailDate:null,real:false,lien:'https://www.bienici.com/#demo-2'},
+  {id:'demo-3',type:'Appartement',commune:'Sceaux',adresse:'22 av. du Président Wilson',prix:395000,surface:65,pieces:3,emailDate:null,real:false,lien:'https://www.bienici.com/#demo-3'},
+  {id:'demo-4',type:'Maison',commune:'Châtenay-Malabry',adresse:'3 rue de la Bièvre',prix:755000,surface:145,pieces:6,emailDate:null,real:false,lien:'https://www.bienici.com/#demo-4'},
+  {id:'demo-5',type:'Appartement',commune:'Fontenay-aux-Roses',adresse:'11 pl. Eugène Valin',prix:289000,surface:52,pieces:2,emailDate:null,real:false,lien:'https://www.bienici.com/#demo-5'},
 ];
 
-let favs=new Set();let activeF='Toutes';let freq=1;
-const fmt=p=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(p);
+let biens = [];
+let favs = new Set();
+let activeF = 'Toutes';
+let freq = 1;
+let lastSyncAt = null;
+
+// ─── Persistance localStorage ─────────────────────────────
+function loadLocal(){
+  try{
+    favs = new Set(JSON.parse(localStorage.getItem(LS_FAVS) || '[]'));
+    const nb = document.getElementById('nb-fav');
+    nb.textContent = favs.size;
+    nb.style.display = favs.size ? 'inline' : 'none';
+  }catch{ favs = new Set(); }
+}
+function saveFavs(){
+  try{ localStorage.setItem(LS_FAVS, JSON.stringify([...favs])); }catch{}
+}
+function loadManual(){
+  try{ return JSON.parse(localStorage.getItem(LS_MANUAL) || '[]'); }
+  catch{ return []; }
+}
+function saveManual(arr){
+  try{ localStorage.setItem(LS_MANUAL, JSON.stringify(arr)); }catch{}
+}
+function loadCache(){
+  try{ return JSON.parse(localStorage.getItem(LS_CACHE) || 'null'); }
+  catch{ return null; }
+}
+function saveCache(snapshot){
+  try{ localStorage.setItem(LS_CACHE, JSON.stringify(snapshot)); }catch{}
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+const fmt = p => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(p);
+
+function ageLabel(iso){
+  if(!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.round(diff / 3_600_000);
+  if(h < 1) return "à l'instant";
+  if(h < 24) return h + 'h';
+  const j = Math.round(h / 24);
+  return j + 'j';
+}
+function isRecent(iso, hours=48){
+  if(!iso) return false;
+  return Date.now() - new Date(iso).getTime() < hours * 3_600_000;
+}
+function formatLastSync(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  return sameDay ? `aujourd'hui ${time}` : d.toLocaleDateString('fr-FR') + ' ' + time;
+}
+
+// ─── Synchronisation Bien'ici depuis Netlify ──────────────
+async function fetchListings(){
+  const res = await fetch(SYNC_ENDPOINT, { cache: 'no-store' });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function buildBiens(snapshot){
+  const manual = loadManual();
+  const real = (snapshot && Array.isArray(snapshot.listings)) ? snapshot.listings : [];
+
+  // Normalisation : on s'assure d'avoir tous les champs attendus par le rendu
+  const realCards = real.map(l => ({
+    id: l.id || ('bi-' + l.lien),
+    type: l.type || 'Autre',
+    commune: l.commune,
+    adresse: l.adresse || l.commune,
+    prix: l.prix || 0,
+    surface: l.surface || 0,
+    pieces: l.pieces || 0,
+    emailDate: l.emailDate || l.ingestedAt || null,
+    real: true,
+    lien: l.lien,
+  }));
+
+  // Dédup : annonces manuelles d'abord (priorité utilisateur),
+  // puis les réelles, puis le fallback démo si tout est vide
+  const seen = new Set();
+  const merged = [];
+  for(const a of [...manual, ...realCards]){
+    if(!a.lien || seen.has(a.lien)) continue;
+    seen.add(a.lien);
+    merged.push(a);
+  }
+  if(merged.length === 0){
+    for(const a of SEED_DEMO) merged.push(a);
+  }
+  return merged;
+}
+
+async function doSync(){
+  const ico = document.getElementById('syncIco');
+  const banner = document.getElementById('syncBanner');
+  const msg = document.getElementById('syncMsg');
+  ico.style.animation = 'spin 1s linear infinite';
+  banner.className = 'banner real';
+  msg.textContent = 'Synchronisation en cours…';
+
+  try{
+    const snapshot = await fetchListings();
+    saveCache(snapshot);
+    lastSyncAt = snapshot.updatedAt;
+    biens = buildBiens(snapshot);
+    renderAll();
+    const count = (snapshot.listings || []).length;
+    banner.className = 'banner ok';
+    msg.textContent = `À jour · ${count} annonce(s) Bien'ici · scan ${formatLastSync(lastSyncAt)}`;
+  }catch(err){
+    // Fallback : on tente le cache localStorage
+    const cached = loadCache();
+    if(cached){
+      biens = buildBiens(cached);
+      lastSyncAt = cached.updatedAt;
+      renderAll();
+      banner.className = 'banner warn';
+      msg.textContent = `Hors ligne · cache du ${formatLastSync(lastSyncAt)}`;
+    }else{
+      biens = buildBiens(null);
+      renderAll();
+      banner.className = 'banner err';
+      msg.textContent = `Sync indisponible · ${err.message}`;
+    }
+  }finally{
+    ico.style.animation = '';
+  }
+}
+
+// ─── Rendu ────────────────────────────────────────────────
+function renderAll(){ renderCards(); renderFavs(); }
 
 function renderCards(){
-  const d=activeF==='Toutes'?biens:biens.filter(a=>a.commune===activeF);
-  document.getElementById('nb-ann').textContent=biens.length;
-  const realOnes=d.filter(a=>a.real);
-  const demoOnes=d.filter(a=>!a.real);
-  let html='';
+  const d = activeF === 'Toutes' ? biens : biens.filter(a => a.commune === activeF);
+  document.getElementById('nb-ann').textContent = biens.length;
+  const realOnes = d.filter(a => a.real);
+  const demoOnes = d.filter(a => !a.real);
+  let html = '';
   if(realOnes.length){
-    html+=`<div class="section-real"><i class="fa-solid fa-satellite-dish"></i> Vraies annonces Bien'ici · aujourd'hui</div>`;
-    html+=realOnes.map(a=>cardHTML(a)).join('');
+    html += `<div class="section-real"><i class="fa-solid fa-satellite-dish"></i> Vraies annonces Bien'ici · ${formatLastSync(lastSyncAt)}</div>`;
+    html += realOnes.map(a => cardHTML(a)).join('');
   }
   if(demoOnes.length){
-    if(realOnes.length) html+=`<div class="section-real" style="color:var(--muted);"><i class="fa-solid fa-clock-rotate-left"></i> Annonces de veille</div>`;
-    html+=demoOnes.map(a=>cardHTML(a)).join('');
+    if(realOnes.length) html += `<div class="section-real" style="color:var(--muted);"><i class="fa-solid fa-clock-rotate-left"></i> Annonces manuelles &amp; veille</div>`;
+    html += demoOnes.map(a => cardHTML(a)).join('');
   }
-  document.getElementById('cardsList').innerHTML=html;
+  if(!d.length){
+    html = `<div class="fav-empty"><i class="fa-regular fa-folder-open"></i><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Aucune annonce</div><div style="font-size:13px">Le prochain scan Gmail est dans &lt; 15 min</div></div>`;
+  }
+  document.getElementById('cardsList').innerHTML = html;
 }
 
 function cardHTML(a){
-  return`<div class="acard${favs.has(a.id)?' fav':''}${a.real?' real-card':''}" id="c${a.id}">
+  const age = ageLabel(a.emailDate);
+  const isNew = isRecent(a.emailDate, 48);
+  return `<div class="acard${favs.has(a.id) ? ' fav' : ''}${a.real ? ' real-card' : ''}" id="c${a.id}">
     <div class="acard-img">
-      <i class="fa-solid ${a.type==='Maison'?'fa-house-chimney':'fa-building'}"></i>
-      <div class="src-tag${a.real?' real':''}">${a.real?"Bien'ici ✓":"Bien'ici"}</div>
-      ${a.isNew?'<div class="new-tag">NOUVEAU</div>':''}
-      ${a.exclu?'<div class="exclu-tag">Exclusivité</div>':''}
+      <i class="fa-solid ${a.type === 'Maison' ? 'fa-house-chimney' : 'fa-building'}"></i>
+      <div class="src-tag${a.real ? ' real' : ''}">${a.real ? "Bien'ici ✓" : "Bien'ici"}</div>
+      ${isNew ? '<div class="new-tag">NOUVEAU</div>' : ''}
     </div>
     <div class="acard-body">
       <div class="aprix">${fmt(a.prix)}</div>
-      <div class="asub">${a.commune} · ${a.adresse} · ${a.age}</div>
+      <div class="asub">${a.commune} · ${a.adresse}${age ? ' · ' + age : ''}</div>
       <div class="atags">
-        <span class="tag">${a.surface} m²</span>
-        <span class="tag">${a.pieces} p.</span>
-        <span class="tag${a.type==='Maison'?' o':''}">${a.type}</span>
+        ${a.surface ? `<span class="tag">${a.surface} m²</span>` : ''}
+        ${a.pieces ? `<span class="tag">${a.pieces} p.</span>` : ''}
+        <span class="tag${a.type === 'Maison' ? ' o' : ''}">${a.type}</span>
       </div>
       <div class="actas">
-        <button class="acta${favs.has(a.id)?' fav-on':''}" onclick="togFav(${a.id})">
-          <i class="fa-${favs.has(a.id)?'solid':'regular'} fa-heart"></i>${favs.has(a.id)?'Favori':'Favori'}
+        <button class="acta${favs.has(a.id) ? ' fav-on' : ''}" onclick="togFav('${a.id}')">
+          <i class="fa-${favs.has(a.id) ? 'solid' : 'regular'} fa-heart"></i>Favori
         </button>
-        <a href="${a.lien}" class="acta" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i>Voir</a>
+        <a href="${a.lien}" class="acta" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i>Voir</a>
       </div>
     </div>
   </div>`;
 }
 
 function togFav(id){
-  favs.has(id)?favs.delete(id):favs.add(id);
-  const nb=document.getElementById('nb-fav');
-  nb.textContent=favs.size;nb.style.display=favs.size?'inline':'none';
-  renderCards();renderFavs();
+  if(favs.has(id)) favs.delete(id); else favs.add(id);
+  saveFavs();
+  const nb = document.getElementById('nb-fav');
+  nb.textContent = favs.size;
+  nb.style.display = favs.size ? 'inline' : 'none';
+  renderCards(); renderFavs();
 }
 
 function renderFavs(){
-  const fl=biens.filter(a=>favs.has(a.id));
-  document.getElementById('favContent').innerHTML=fl.length?
-    '<div class="cards">'+fl.map(a=>cardHTML(a)).join('')+'</div>'
-    :'<div class="fav-empty"><i class="fa-regular fa-heart"></i><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Aucun favori</div><div style="font-size:13px">Appuie sur ♡ sur une annonce</div></div>';
+  const fl = biens.filter(a => favs.has(a.id));
+  document.getElementById('favContent').innerHTML = fl.length
+    ? '<div class="cards">' + fl.map(a => cardHTML(a)).join('') + '</div>'
+    : '<div class="fav-empty"><i class="fa-regular fa-heart"></i><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Aucun favori</div><div style="font-size:13px">Appuie sur ♡ sur une annonce</div></div>';
 }
 
 function renderBoitage(){
-  document.getElementById('boitageStops').innerHTML=zones.map((z,i)=>`
+  document.getElementById('boitageStops').innerHTML = zones.map((z,i) => `
     <div class="stop">
-      <div class="stopn">${i+1}</div>
+      <div class="stopn">${i + 1}</div>
       <div class="stop-inf">
         <div class="stop-addr">${z.nom}</div>
         <div class="stop-dtl">${z.rues}</div>
         <div class="stop-meta">
-          <span><i class="fa-solid fa-mailbox" style="font-size:10px;"></i> ${freq===2?Math.round(z.boites/2):z.boites} boîtes</span>
+          <span><i class="fa-solid fa-mailbox" style="font-size:10px;"></i> ${freq === 2 ? Math.round(z.boites / 2) : z.boites} boîtes</span>
           <span><i class="fa-solid fa-car" style="font-size:10px;"></i> ${z.km} km</span>
         </div>
       </div>
       <div class="stop-t">${z.h}</div>
     </div>`).join('');
-  const tb=zones.reduce((s,z)=>s+(freq===2?Math.round(z.boites/2):z.boites),0);
-  document.getElementById('t-boites').textContent=tb.toLocaleString('fr-FR');
-  document.getElementById('t-dur').textContent=freq===1?'2h30':'1h15';
+  const tb = zones.reduce((s,z) => s + (freq === 2 ? Math.round(z.boites / 2) : z.boites), 0);
+  document.getElementById('t-boites').textContent = tb.toLocaleString('fr-FR');
+  document.getElementById('t-dur').textContent = freq === 1 ? '2h30' : '1h15';
 }
 
 function setFreq(f){
-  freq=f;
-  document.getElementById('freq1').className='freq-btn'+(f===1?' on':'');
-  document.getElementById('freq2').className='freq-btn'+(f===2?' on':'');
+  freq = f;
+  document.getElementById('freq1').className = 'freq-btn' + (f === 1 ? ' on' : '');
+  document.getElementById('freq2').className = 'freq-btn' + (f === 2 ? ' on' : '');
   renderBoitage();
 }
 
-function filterC(v,el){
-  activeF=v;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
-  el.classList.add('on');renderCards();
+function filterC(v, el){
+  activeF = v;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  renderCards();
 }
 
 function goTab(t){
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
-  document.getElementById('p-'+t).classList.add('on');
-  document.getElementById('nav-'+t).classList.add('on');
-  document.getElementById('scroll').scrollTop=0;
-  if(t==='carte')renderMap();
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('on'));
+  document.getElementById('p-' + t).classList.add('on');
+  document.getElementById('nav-' + t).classList.add('on');
+  document.getElementById('scroll').scrollTop = 0;
+  if(t === 'carte') renderMap();
 }
 
 function renderMap(){
-  const pos=[
+  const pos = [
     {n:'Sceaux',x:200,y:178},{n:'Bourg-la-Reine',x:255,y:132},
     {n:'Châtenay-Malabry',x:142,y:208},{n:'Fontenay-aux-Roses',x:188,y:116}
   ];
-  let pins='';
-  biens.forEach(a=>{
-    const c=pos.find(x=>x.n===a.commune);if(!c)return;
-    const ox=(Math.random()-.5)*26,oy=(Math.random()-.5)*20;
-    const col=a.real?'#e07b3a':a.type==='Maison'?'#e07b3a':'#1a4a6b';
-    const r=a.real?9:7;
-    pins+=`<circle cx="${+(c.x+ox).toFixed(1)}" cy="${+(c.y+oy).toFixed(1)}" r="${r}" fill="${col}" stroke="${a.real?'#fff':'#fff'}" stroke-width="${a.real?2:1.5}"/>`;
+  let pins = '';
+  biens.forEach(a => {
+    const c = pos.find(x => x.n === a.commune);
+    if(!c) return;
+    const ox = (Math.random() - 0.5) * 26, oy = (Math.random() - 0.5) * 20;
+    const col = a.real ? '#e07b3a' : (a.type === 'Maison' ? '#e07b3a' : '#1a4a6b');
+    const r = a.real ? 9 : 7;
+    pins += `<circle cx="${+(c.x + ox).toFixed(1)}" cy="${+(c.y + oy).toFixed(1)}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${a.real ? 2 : 1.5}"/>`;
   });
-  document.getElementById('mapSvg').innerHTML=`
+  document.getElementById('mapSvg').innerHTML = `
     <rect width="360" height="300" fill="#dce8f0"/>
-    ${pos.map(c=>`
+    ${pos.map(c => `
       <ellipse cx="${c.x}" cy="${c.y}" rx="36" ry="23" fill="#b8cfe0" stroke="#8aafc0" stroke-width="0.5" opacity=".75"/>
-      <text x="${c.x}" y="${c.y+4}" text-anchor="middle" font-size="9" fill="#1a4a6b" font-weight="600" font-family="DM Sans,sans-serif">${c.n}</text>
+      <text x="${c.x}" y="${c.y + 4}" text-anchor="middle" font-size="9" fill="#1a4a6b" font-weight="600" font-family="DM Sans,sans-serif">${c.n}</text>
     `).join('')}${pins}
     <text x="180" y="15" text-anchor="middle" font-size="9" fill="#1a4a6b" opacity=".5" font-family="DM Sans,sans-serif">Hauts-de-Seine Sud · 4 communes</text>
     <circle cx="320" cy="270" r="6" fill="#e07b3a" stroke="#fff" stroke-width="1.5"/>
@@ -443,38 +577,68 @@ function renderMap(){
     <text x="330" y="289" font-size="8" fill="#1a4a6b" font-family="DM Sans,sans-serif">Veille</text>`;
 }
 
-function tog(el){el.classList.toggle('off');}
+function tog(el){ el.classList.toggle('off'); }
 
-function doSync(){
-  const ico=document.getElementById('syncIco');
-  const banner=document.getElementById('syncBanner');
-  const msg=document.getElementById('syncMsg');
-  ico.style.animation='spin 1s linear infinite';
-  setTimeout(()=>{
-    ico.style.animation='';
-    banner.className='banner ok';
-    msg.textContent="À jour · Ouvre Claude.ai pour intégrer de nouvelles annonces";
-  },1500);
+function openGMaps(){
+  window.open('https://www.google.com/maps/search/immobilier+sceaux+bourg-la-reine+chatenay+fontenay/@48.77,2.28,13z','_blank');
 }
-
-function openGMaps(){window.open('https://www.google.com/maps/search/immobilier+sceaux+bourg-la-reine+chatenay+fontenay/@48.77,2.28,13z','_blank');}
 function openBoitageRoute(){
-  const s=zones.map(z=>encodeURIComponent(z.q+', France')).join('/');
-  window.open('https://www.google.com/maps/dir/'+s,'_blank');
+  const s = zones.map(z => encodeURIComponent(z.q + ', France')).join('/');
+  window.open('https://www.google.com/maps/dir/' + s, '_blank');
 }
-function openModal(){document.getElementById('mwrap').style.display='flex';}
-function closeModal(){document.getElementById('mwrap').style.display='none';}
-function bgClose(e){if(e.target===document.getElementById('mwrap'))closeModal();}
+function openModal(){ document.getElementById('mwrap').style.display = 'flex'; }
+function closeModal(){ document.getElementById('mwrap').style.display = 'none'; }
+function bgClose(e){ if(e.target === document.getElementById('mwrap')) closeModal(); }
+
 function addBien(){
-  const addr=document.getElementById('f-addr').value;
-  if(!addr){alert('Merci d\'entrer une adresse.');return;}
-  biens.unshift({id:Date.now(),type:document.getElementById('f-type').value,commune:document.getElementById('f-comm').value,adresse:addr,prix:parseInt(document.getElementById('f-prix').value)||0,surface:parseInt(document.getElementById('f-surf').value)||0,pieces:parseInt(document.getElementById('f-piec').value)||0,age:'maintenant',isNew:true,real:false,exclu:false,lien:document.getElementById('f-lien').value||'https://www.bienici.com'});
-  closeModal();renderCards();
+  const addr = document.getElementById('f-addr').value;
+  if(!addr){ alert("Merci d'entrer une adresse."); return; }
+  const newOne = {
+    id: 'man-' + Date.now(),
+    type: document.getElementById('f-type').value,
+    commune: document.getElementById('f-comm').value,
+    adresse: addr,
+    prix: parseInt(document.getElementById('f-prix').value) || 0,
+    surface: parseInt(document.getElementById('f-surf').value) || 0,
+    pieces: parseInt(document.getElementById('f-piec').value) || 0,
+    emailDate: new Date().toISOString(),
+    real: false,
+    lien: document.getElementById('f-lien').value || 'https://www.bienici.com',
+  };
+  const manual = loadManual();
+  manual.unshift(newOne);
+  saveManual(manual);
+  biens.unshift(newOne);
+  closeModal();
+  renderAll();
 }
-const st=document.createElement('style');
-st.textContent='@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
+
+// ─── Démarrage ────────────────────────────────────────────
+const st = document.createElement('style');
+st.textContent = '@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
 document.head.appendChild(st);
-renderCards();renderBoitage();renderFavs();
+
+loadLocal();
+
+// 1. Affichage immédiat depuis le cache localStorage (instantané, même offline)
+const cached = loadCache();
+if(cached){
+  biens = buildBiens(cached);
+  lastSyncAt = cached.updatedAt;
+}else{
+  biens = buildBiens(null);
+}
+renderBoitage();
+renderAll();
+
+// 2. Puis sync réseau en arrière-plan
+doSync();
+
+// 3. Auto-refresh toutes les 5 minutes quand l'app reste ouverte
+setInterval(() => { if(!document.hidden) doSync(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden) doSync();
+});
 </script>
 </body>
 </html>
