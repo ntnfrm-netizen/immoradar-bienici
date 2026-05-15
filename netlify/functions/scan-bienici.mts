@@ -16,6 +16,7 @@ import type { Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 import { google } from "googleapis";
 import { GoogleGenAI } from "@google/genai";
+import { createHash } from "node:crypto";
 
 // ─── Constantes métier ──────────────────────────────────────────────
 const TARGET_COMMUNES = [
@@ -47,6 +48,13 @@ function env(name: string): string {
   const raw = process.env[name];
   if (!raw) return "";
   return raw.trim().replace(/^["']|["']$/g, "").trim();
+}
+
+// ID stable et unique d'une annonce, dérivé d'un hash du lien Bien'ici.
+// (un simple slice du lien encodé donnait des IDs identiques car tous les
+//  liens Bien'ici partagent le même préfixe https://www.bienici.com/...)
+function listingId(lien: string): string {
+  return `bi_${createHash("sha1").update(lien).digest("base64url").slice(0, 16)}`;
 }
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -200,8 +208,14 @@ export default async (_req: Request) => {
     // 2. Charger le snapshot existant (dédup annonces + emails déjà traités)
     const store = getStore("listings");
     const existing = (await store.get("data", { type: "json" })) as Snapshot | null;
+    // On régénère l'ID des annonces existantes — corrige d'éventuels anciens
+    // IDs en doublon issus d'une version précédente du code
+    const existingListings: Listing[] = (existing?.listings ?? []).map((l) => ({
+      ...l,
+      id: listingId(l.lien),
+    }));
     const existingByLink = new Map<string, Listing>();
-    for (const l of existing?.listings ?? []) existingByLink.set(l.lien, l);
+    for (const l of existingListings) existingByLink.set(l.lien, l);
     const processedIds = new Set<string>(existing?.processedEmailIds ?? []);
 
     // 3. Liste des messages récents
@@ -263,7 +277,7 @@ export default async (_req: Request) => {
           if (newListings.find((n) => n.lien === a.lien)) continue;
 
           newListings.push({
-            id: `bi_${Buffer.from(a.lien).toString("base64url").slice(0, 14)}`,
+            id: listingId(a.lien),
             type:
               a.type === "Maison" || a.type === "Appartement" ? a.type : "Autre",
             commune,
@@ -292,10 +306,7 @@ export default async (_req: Request) => {
     );
 
     // 5. Merge des annonces (récentes en premier, on garde les 150 plus récentes)
-    const merged: Listing[] = [
-      ...newListings,
-      ...(existing?.listings ?? []),
-    ];
+    const merged: Listing[] = [...newListings, ...existingListings];
     merged.sort(
       (a, b) =>
         new Date(b.ingestedAt).getTime() - new Date(a.ingestedAt).getTime()
