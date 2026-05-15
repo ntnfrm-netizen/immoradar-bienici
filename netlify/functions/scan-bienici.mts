@@ -174,7 +174,7 @@ async function extractWithGemini(emailText: string): Promise<any[]> {
   // On tronque pour rester sous la limite de tokens (les emails Bien'ici sont rarement >50k chars)
   const truncated = emailText.slice(0, 60_000);
   const result = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     contents: GEMINI_PROMPT + truncated,
     config: {
       temperature: 0.1,
