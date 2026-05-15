@@ -3,11 +3,13 @@
 // Scheduled Function — s'exécute toutes les 15 minutes via Netlify Cron.
 //
 // 1. S'authentifie sur Gmail (OAuth refresh token)
-// 2. Cherche les emails Bien'ici reçus depuis le dernier scan
-// 3. Pour chaque email, appelle Gemini 1.5 Flash pour extraire les annonces
-// 4. Filtre sur les 4 communes cibles (Sceaux, BLR, Châtenay, Fontenay)
-// 5. Merge avec le JSON existant dans Netlify Blobs (dédup par lien)
-// 6. Écrit le résultat dans le store "listings"
+// 2. Cherche les emails Bien'ici des dernières 24h
+// 3. Ignore les emails DÉJÀ traités (mémorisés dans le snapshot) — c'est
+//    ce qui évite de cramer le quota Gemini en re-traitant les mêmes mails
+// 4. Pour chaque email NOUVEAU, appelle Gemini Flash pour extraire les annonces
+// 5. Filtre sur les 4 communes cibles (Sceaux, BLR, Châtenay, Fontenay)
+// 6. Merge avec le JSON existant dans Netlify Blobs (dédup par lien)
+// 7. Écrit le résultat (+ la liste des emails traités) dans le store "listings"
 // ────────────────────────────────────────────────────────────────────
 
 import type { Config } from "@netlify/functions";
@@ -65,6 +67,8 @@ type Listing = {
 type Snapshot = {
   updatedAt: string;
   listings: Listing[];
+  // IDs des emails Gmail déjà passés par Gemini — pour ne jamais les retraiter
+  processedEmailIds?: string[];
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -154,7 +158,7 @@ async function extractWithGemini(emailText: string): Promise<any[]> {
   // On tronque pour rester sous la limite de tokens (les emails Bien'ici sont rarement >50k chars)
   const truncated = emailText.slice(0, 60_000);
   const result = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     contents: GEMINI_PROMPT + truncated,
     config: {
       temperature: 0.1,
@@ -193,7 +197,14 @@ export default async (_req: Request) => {
 
     const gmail = google.gmail({ version: "v1", auth: oauth2 });
 
-    // 2. Liste des messages récents
+    // 2. Charger le snapshot existant (dédup annonces + emails déjà traités)
+    const store = getStore("listings");
+    const existing = (await store.get("data", { type: "json" })) as Snapshot | null;
+    const existingByLink = new Map<string, Listing>();
+    for (const l of existing?.listings ?? []) existingByLink.set(l.lien, l);
+    const processedIds = new Set<string>(existing?.processedEmailIds ?? []);
+
+    // 3. Liste des messages récents
     const list = await gmail.users.messages.list({
       userId: "me",
       q: GMAIL_QUERY,
@@ -203,29 +214,31 @@ export default async (_req: Request) => {
     const messages = list.data.messages ?? [];
     console.log(`[scan-bienici] ${messages.length} email(s) trouvé(s)`);
 
-    if (messages.length === 0) {
-      return new Response("OK · aucun email à traiter", { status: 200 });
-    }
-
-    // 3. Charger le snapshot existant pour dédup
-    const store = getStore("listings");
-    const existing = (await store.get("data", { type: "json" })) as Snapshot | null;
-    const existingByLink = new Map<string, Listing>();
-    for (const l of existing?.listings ?? []) existingByLink.set(l.lien, l);
-
-    // 4. Pour chaque email, extraire les annonces avec Gemini
+    // 4. Pour chaque email NON ENCORE TRAITÉ, extraire les annonces avec Gemini
     const newListings: Listing[] = [];
+    const newlyProcessed: string[] = [];
+    let skipped = 0;
+
     for (const m of messages) {
+      if (!m.id) continue;
+
+      // On n'appelle Gemini que pour les emails jamais vus → préserve le quota
+      if (processedIds.has(m.id)) {
+        skipped++;
+        continue;
+      }
+
       try {
         const msg = await gmail.users.messages.get({
           userId: "me",
-          id: m.id!,
+          id: m.id,
           format: "full",
         });
 
         const rawBody = decodeBody(msg.data.payload);
         if (!rawBody) {
           console.warn(`[scan-bienici] Email ${m.id} : body vide`);
+          newlyProcessed.push(m.id); // rien à extraire, mais on ne le retraitera pas
           continue;
         }
 
@@ -264,35 +277,45 @@ export default async (_req: Request) => {
             source: "bienici-gmail",
           });
         }
+
+        // Email traité avec succès → mémorisé pour ne plus jamais le retraiter
+        newlyProcessed.push(m.id);
       } catch (err) {
+        // En cas d'erreur (ex : quota Gemini), on NE marque PAS l'email comme
+        // traité → il sera réessayé au prochain scan (dans 15 min)
         console.error(`[scan-bienici] Erreur message ${m.id} :`, err);
       }
     }
 
-    console.log(`[scan-bienici] ${newListings.length} nouvelle(s) annonce(s)`);
+    console.log(
+      `[scan-bienici] ${skipped} déjà traité(s) · ${newlyProcessed.length} traité(s) ce scan · ${newListings.length} nouvelle(s) annonce(s)`
+    );
 
-    // 5. Merge et écriture
+    // 5. Merge des annonces (récentes en premier, on garde les 150 plus récentes)
     const merged: Listing[] = [
       ...newListings,
       ...(existing?.listings ?? []),
     ];
-
-    // On garde les 150 plus récentes (par ingestedAt desc)
     merged.sort(
       (a, b) =>
         new Date(b.ingestedAt).getTime() - new Date(a.ingestedAt).getTime()
     );
     const trimmed = merged.slice(0, 150);
 
+    // 6. Liste des emails traités (anciens + nouveaux), limitée aux 300 plus récents
+    const allProcessed = [...processedIds, ...newlyProcessed].slice(-300);
+
+    // 7. Écriture du snapshot
     const snapshot: Snapshot = {
       updatedAt: new Date().toISOString(),
       listings: trimmed,
+      processedEmailIds: allProcessed,
     };
     await store.setJSON("data", snapshot);
 
     const ms = Date.now() - startedAt;
     return new Response(
-      `OK · ${newListings.length} nouvelles · ${trimmed.length} au total · ${ms}ms`,
+      `OK · ${newlyProcessed.length} email(s) traité(s) · ${newListings.length} nouvelles · ${trimmed.length} au total · ${ms}ms`,
       { status: 200 }
     );
   } catch (err) {
