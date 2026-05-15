@@ -284,6 +284,17 @@ Gmail est scanné <strong>toutes les 15 minutes</strong> par une fonction Netlif
 // 15 min par scan-bienici qui scanne Gmail + appelle Gemini)
 // ─────────────────────────────────────────────────────────
 
+// Nettoyage : désinscrit tout ancien service worker (versions précédentes
+// de l'app) qui pourrait servir un cache périmé sur l'iPhone.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(rs => rs.forEach(r => r.unregister()))
+    .catch(() => {});
+}
+if (window.caches && caches.keys) {
+  caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
+}
+
 const COMMUNES = ['Sceaux','Bourg-la-Reine','Châtenay-Malabry','Fontenay-aux-Roses'];
 const SYNC_ENDPOINT = '/.netlify/functions/get-listings';
 const LS_FAVS = 'immoradar_favs_v2';

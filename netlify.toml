@@ -22,6 +22,18 @@
     X-Frame-Options = "SAMEORIGIN"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
+# Le HTML ne doit jamais être servi depuis un cache périmé : on force la
+# revalidation à chaque ouverture pour que les mises à jour passent.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 # CORS ouvert sur l'endpoint public de lecture des annonces
 [[headers]]
   for = "/.netlify/functions/get-listings"

@@ -39,8 +39,10 @@ const COMMUNE_NORMALIZE: Record<string, string> = {
   "fontenay-aux-roses": "Fontenay-aux-Roses",
 };
 
-// Query Gmail : emails Bien'ici des dernières 24h
-const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:1d";
+// Query Gmail : emails Bien'ici des 7 derniers jours. Fenêtre large de sécurité
+// (un scan manqué ne fait rien perdre) ; les emails déjà traités sont de toute
+// façon ignorés via processedEmailIds → aucun gaspillage de quota Gemini.
+const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:7d";
 
 // Lecture d'une variable d'env, nettoyée des espaces et guillemets parasites
 // (évite les erreurs invalid_client dues à un copier-coller imparfait)
@@ -62,7 +64,9 @@ type Listing = {
   id: string;
   type: "Appartement" | "Maison" | "Autre";
   commune: string;
+  quartier: string; // quartier/secteur si l'email le mentionne, sinon ""
   adresse: string;
+  indiceLocalisation: string; // indices libres : "proche parc", "rue X", métro…
   prix: number;
   surface: number;
   pieces: number;
@@ -128,7 +132,7 @@ function stripHtml(html: string): string {
 }
 
 // ─── Prompt Gemini : extraction structurée ──────────────────────────
-const GEMINI_PROMPT = `Tu es un extracteur d'annonces immobilières. On te donne le contenu textuel d'un email d'alerte Bien'ici reçu par un agent immobilier.
+const GEMINI_PROMPT = `Tu es un extracteur d'annonces immobilières. On te donne le contenu textuel d'un email d'alerte Bien'ici reçu par un agent immobilier qui fait de la prospection.
 
 Renvoie UNIQUEMENT un JSON valide (sans markdown, sans \`\`\`) de cette forme :
 
@@ -137,7 +141,9 @@ Renvoie UNIQUEMENT un JSON valide (sans markdown, sans \`\`\`) de cette forme :
     {
       "type": "Appartement" | "Maison" | "Autre",
       "commune": "Sceaux" | "Bourg-la-Reine" | "Châtenay-Malabry" | "Fontenay-aux-Roses" | "<autre commune>",
-      "adresse": "<adresse ou code postal + ville>",
+      "quartier": "<nom du quartier ou secteur si mentionné quelque part dans l'email, sinon \\"\\">",
+      "adresse": "<l'adresse la plus précise trouvée : si une rue est citée dans le titre ou la description, mets-la ; sinon code postal + ville>",
+      "indiceLocalisation": "<TOUT indice de localisation présent dans le texte : nom de rue, point de repère ('proche du parc de Sceaux', 'à 5 min du RER'), station de métro/RER, lieu-dit. Sinon \\"\\">",
       "prix": <entier en euros, sans espaces ni symbole>,
       "surface": <entier en m², 0 si inconnu>,
       "pieces": <entier, 0 si inconnu>,
@@ -147,9 +153,11 @@ Renvoie UNIQUEMENT un JSON valide (sans markdown, sans \`\`\`) de cette forme :
 }
 
 Règles :
+- IMPORTANT : cherche activement les indices de localisation dans TOUT le texte (titre, description, légendes). Pour la prospection, le quartier et la rue sont l'information la plus précieuse — ne les rate pas.
 - Si l'email contient plusieurs annonces, renvoie-les toutes dans le tableau.
 - Si une annonce ne contient ni prix ni lien, ignore-la (ne la renvoie pas).
 - Les liens doivent commencer par https://www.bienici.com/.
+- N'invente jamais une localisation : si l'info n'est pas dans le texte, mets une chaîne vide.
 - Si l'email ne contient AUCUNE annonce exploitable, renvoie { "annonces": [] }.
 - Réponds STRICTEMENT en JSON, aucun texte avant ou après.
 
@@ -205,24 +213,24 @@ export default async (_req: Request) => {
 
     const gmail = google.gmail({ version: "v1", auth: oauth2 });
 
-    // 2. Charger le snapshot existant (dédup annonces + emails déjà traités)
+    // 2. Charger le snapshot existant (emails déjà traités + annonces connues)
     const store = getStore("listings");
     const existing = (await store.get("data", { type: "json" })) as Snapshot | null;
-    // On régénère l'ID des annonces existantes — corrige d'éventuels anciens
-    // IDs en doublon issus d'une version précédente du code
+    // On régénère l'ID des annonces existantes (corrige d'anciens IDs en doublon)
+    // et on garantit la présence des champs récents (rétrocompat)
     const existingListings: Listing[] = (existing?.listings ?? []).map((l) => ({
       ...l,
       id: listingId(l.lien),
+      quartier: l.quartier ?? "",
+      indiceLocalisation: l.indiceLocalisation ?? "",
     }));
-    const existingByLink = new Map<string, Listing>();
-    for (const l of existingListings) existingByLink.set(l.lien, l);
     const processedIds = new Set<string>(existing?.processedEmailIds ?? []);
 
     // 3. Liste des messages récents
     const list = await gmail.users.messages.list({
       userId: "me",
       q: GMAIL_QUERY,
-      maxResults: 25,
+      maxResults: 50,
     });
 
     const messages = list.data.messages ?? [];
@@ -272,8 +280,7 @@ export default async (_req: Request) => {
           const commune = normalizeCommune(a.commune ?? "");
           if (!commune || !TARGET_COMMUNES.includes(commune)) continue;
 
-          // Dédup par lien
-          if (existingByLink.has(a.lien)) continue;
+          // Dédup intra-scan (un même email ne crée pas 2× la même annonce)
           if (newListings.find((n) => n.lien === a.lien)) continue;
 
           newListings.push({
@@ -281,7 +288,9 @@ export default async (_req: Request) => {
             type:
               a.type === "Maison" || a.type === "Appartement" ? a.type : "Autre",
             commune,
+            quartier: String(a.quartier ?? "").trim(),
             adresse: String(a.adresse ?? "").trim() || `${commune}`,
+            indiceLocalisation: String(a.indiceLocalisation ?? "").trim(),
             prix: parseInt(`${a.prix}`) || 0,
             surface: parseInt(`${a.surface}`) || 0,
             pieces: parseInt(`${a.pieces}`) || 0,
@@ -305,8 +314,13 @@ export default async (_req: Request) => {
       `[scan-bienici] ${skipped} déjà traité(s) · ${newlyProcessed.length} traité(s) ce scan · ${newListings.length} nouvelle(s) annonce(s)`
     );
 
-    // 5. Merge des annonces (récentes en premier, on garde les 150 plus récentes)
-    const merged: Listing[] = [...newListings, ...existingListings];
+    // 5. Merge : les annonces fraîchement extraites priment sur les anciennes
+    //    (une ré-extraction met à jour les données — ex : ajout du quartier)
+    const freshLinks = new Set(newListings.map((n) => n.lien));
+    const merged: Listing[] = [
+      ...newListings,
+      ...existingListings.filter((l) => !freshLinks.has(l.lien)),
+    ];
     merged.sort(
       (a, b) =>
         new Date(b.ingestedAt).getTime() - new Date(a.ingestedAt).getTime()
