@@ -319,6 +319,9 @@ const COMMUNE_COORDS = {
 // freq=1 (1×/mois) → 30j, freq=2 (2×/mois) → 15j
 function tourneeWindowDays() { return freq === 2 ? 15 : 30; }
 
+// Adresse de départ par défaut pour la tournée boîtage (base de Marie-Astrid)
+const HOME_ADDRESS = '6 place Charles de Gaulle, 92330 Sceaux, France';
+
 const zones = [
   {nom:'Centre Sceaux',q:'Sceaux',rues:'Rue Houdan, Pl. de la Boule, Av. Wilson',boites:600,km:4.5,h:'09:00'},
   {nom:'Bourg-la-Reine centre',q:'Bourg-la-Reine',rues:'Av. Gal Leclerc, Rue Cerisaie',boites:700,km:5.2,h:'10:00'},
@@ -698,15 +701,19 @@ function openTourneeNouveaux(){
   }
   // Les alertes Bien'ici sont commune-level → on dédoublonne par commune
   const communes = [...new Set(tournables.map(a => a.commune))];
-  const enc = c => encodeURIComponent(c + ', France');
+  const enc = s => encodeURIComponent(s);
+  const origin = enc(HOME_ADDRESS);
   let url;
   if(communes.length === 1){
-    url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + enc(communes[0]);
-  } else {
-    const waypoints = communes.slice(0, -1).map(enc).join('|');
     url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+        + '&origin=' + origin
+        + '&destination=' + enc(communes[0] + ', France');
+  } else {
+    const waypoints = communes.slice(0, -1).map(c => enc(c + ', France')).join('|');
+    url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+        + '&origin=' + origin
         + '&waypoints=' + waypoints
-        + '&destination=' + enc(communes[communes.length - 1]);
+        + '&destination=' + enc(communes[communes.length - 1] + ', France');
   }
   window.open(url, '_blank');
 }
