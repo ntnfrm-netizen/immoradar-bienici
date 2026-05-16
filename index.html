@@ -81,6 +81,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);ba
 .acta.fav-on{color:var(--accent);border-color:var(--accent);background:var(--accent-light);}
 .sec{font-size:17px;font-weight:600;padding:14px 14px 6px;font-family:var(--fd);}
 .map-wrap{margin:0 14px;border-radius:var(--rl);overflow:hidden;border:0.5px solid var(--border);}
+#gmap{height:340px;width:100%;}
+.map-info{margin:6px 14px 0;font-size:11px;color:var(--muted);text-align:center;}
 .map-actions{padding:8px 14px;display:flex;gap:8px;}
 .freq-row{display:flex;gap:8px;padding:0 14px 10px;}
 .freq-btn{flex:1;font-family:var(--ff);font-size:13px;padding:9px;border-radius:var(--r);border:0.5px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;text-align:center;font-weight:500;}
@@ -163,11 +165,12 @@ html,body{height:100%;overflow:hidden;font-family:var(--ff);color:var(--text);ba
 <div class="panel" id="p-carte">
 <div class="sec">Carte des biens</div>
 <div class="map-wrap">
-<svg id="mapSvg" width="100%" viewBox="0 0 360 300" style="display:block;background:#dce8f0;"></svg>
+<div id="gmap"></div>
 </div>
+<div class="map-info" id="mapInfo">Marqueurs orange = biens dans la fenêtre de tournée. Bleu = plus anciens.</div>
 <div class="map-actions">
-<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="openGMaps()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Google Maps</button>
-<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="goTab('boitage')"><i class="fa-solid fa-route"></i> Planifier boîtage</button>
+<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="openTourneeNouveaux()"><i class="fa-solid fa-route"></i> Tournée boîtage</button>
+<button class="acta" style="flex:1;font-size:13px;padding:10px;" onclick="goTab('boitage')"><i class="fa-solid fa-mailbox"></i> Réglages boîtage</button>
 </div>
 </div>
 <!-- BOITAGE -->
@@ -300,6 +303,21 @@ const SYNC_ENDPOINT = '/.netlify/functions/get-listings';
 const LS_FAVS = 'immoradar_favs_v2';
 const LS_MANUAL = 'immoradar_manual_v2';
 const LS_CACHE = 'immoradar_cache_v2';
+
+// Clef Google Maps (restreinte au domaine Netlify, OK en clair dans le HTML public)
+const GOOGLE_MAPS_API_KEY = 'AIzaSyB6qk4KuTDEmDiXI-yOJitpNUMqUvXLcy0';
+
+// Centres approximatifs des 4 communes (les alertes Bien'ici sont commune-level)
+const COMMUNE_COORDS = {
+  'Sceaux': { lat: 48.7779, lng: 2.2906 },
+  'Bourg-la-Reine': { lat: 48.7803, lng: 2.3145 },
+  'Châtenay-Malabry': { lat: 48.7656, lng: 2.2785 },
+  'Fontenay-aux-Roses': { lat: 48.7894, lng: 2.2937 },
+};
+
+// Fenêtre de tournée calée sur la cadence boîtage :
+// freq=1 (1×/mois) → 30j, freq=2 (2×/mois) → 15j
+function tourneeWindowDays() { return freq === 2 ? 15 : 30; }
 
 const zones = [
   {nom:'Centre Sceaux',q:'Sceaux',rues:'Rue Houdan, Pl. de la Boule, Av. Wilson',boites:600,km:4.5,h:'09:00'},
@@ -558,40 +576,139 @@ function goTab(t){
   document.getElementById('p-' + t).classList.add('on');
   document.getElementById('nav-' + t).classList.add('on');
   document.getElementById('scroll').scrollTop = 0;
-  if(t === 'carte') renderMap();
+  if(t === 'carte') renderGoogleMap();
 }
 
-function renderMap(){
-  const pos = [
-    {n:'Sceaux',x:200,y:178},{n:'Bourg-la-Reine',x:255,y:132},
-    {n:'Châtenay-Malabry',x:142,y:208},{n:'Fontenay-aux-Roses',x:188,y:116}
-  ];
-  let pins = '';
+// ─── Carte Google Maps ────────────────────────────────────
+let gmap = null;
+let gmapMarkers = [];
+let gmapInfoWindow = null;
+
+// Décalage déterministe pour distinguer plusieurs biens d'une même commune
+function jitterFromId(id){
+  let h = 0;
+  for(let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return {
+    dlat: (((h % 1000) / 1000) - 0.5) * 0.007,
+    dlng: ((((h >> 10) % 1000) / 1000) - 0.5) * 0.007,
+  };
+}
+
+function loadGoogleMaps(){
+  if(window.google && window.google.maps) return;
+  if(document.getElementById('gmaps-script')) return;
+  const s = document.createElement('script');
+  s.id = 'gmaps-script';
+  s.async = true;
+  s.src = 'https://maps.googleapis.com/maps/api/js?key=' + GOOGLE_MAPS_API_KEY
+        + '&callback=initImmoMap&loading=async';
+  document.head.appendChild(s);
+}
+
+// Callback appelé par l'API Google Maps une fois chargée
+window.initImmoMap = function(){
+  if(document.getElementById('p-carte').classList.contains('on')) renderGoogleMap();
+};
+
+function renderGoogleMap(){
+  const el = document.getElementById('gmap');
+  if(!el) return;
+
+  // API pas encore chargée → on lance le chargement et on attend le callback
+  if(!(window.google && window.google.maps)){
+    el.innerHTML = '<div style="padding:46px 16px;text-align:center;color:var(--muted);font-size:13px;">Chargement de la carte…</div>';
+    loadGoogleMaps();
+    return;
+  }
+
+  // Création de la carte (une seule fois)
+  if(!gmap){
+    el.innerHTML = '';
+    gmap = new google.maps.Map(el, {
+      center: { lat: 48.778, lng: 2.295 },
+      zoom: 13,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+    gmapInfoWindow = new google.maps.InfoWindow();
+  }
+
+  // Réinitialise les marqueurs
+  gmapMarkers.forEach(m => m.setMap(null));
+  gmapMarkers = [];
+  const bounds = new google.maps.LatLngBounds();
+  const windowDays = tourneeWindowDays();
+  const info = document.getElementById('mapInfo');
+  if(info) info.textContent = `Tournée : biens des ${windowDays} derniers jours (orange) — modifiable dans l'onglet Boîtage.`;
+
   biens.forEach(a => {
-    const c = pos.find(x => x.n === a.commune);
-    if(!c) return;
-    const ox = (Math.random() - 0.5) * 26, oy = (Math.random() - 0.5) * 20;
-    const col = a.real ? '#e07b3a' : (a.type === 'Maison' ? '#e07b3a' : '#1a4a6b');
-    const r = a.real ? 9 : 7;
-    pins += `<circle cx="${+(c.x + ox).toFixed(1)}" cy="${+(c.y + oy).toFixed(1)}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${a.real ? 2 : 1.5}"/>`;
+    const base = COMMUNE_COORDS[a.commune];
+    if(!base) return;
+    const j = jitterFromId(String(a.id));
+    const pos = { lat: base.lat + j.dlat, lng: base.lng + j.dlng };
+    const inTour = isRecent(a.emailDate, windowDays * 24);
+    const marker = new google.maps.Marker({
+      position: pos,
+      map: gmap,
+      title: fmt(a.prix) + ' · ' + a.commune,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: inTour ? '#e07b3a' : '#1a4a6b',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2,
+        scale: inTour ? 10 : 8,
+      },
+      label: { text: a.type === 'Maison' ? 'M' : 'A', color: '#fff', fontSize: '11px', fontWeight: '600' },
+    });
+    marker.addListener('click', () => {
+      gmapInfoWindow.setContent(
+        '<div style="font-family:sans-serif;font-size:13px;line-height:1.5;min-width:160px;">'
+        + '<strong style="font-size:15px;color:#1a4a6b;">' + fmt(a.prix) + '</strong>'
+        + (inTour ? ' <span style="background:#e07b3a;color:#fff;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;">À TOURNER</span>' : '')
+        + '<br>' + a.type + ' · ' + (a.surface || '?') + ' m² · ' + (a.pieces || '?') + ' p.'
+        + '<br>' + a.commune + (a.adresse && a.adresse !== a.commune ? ' · ' + a.adresse : '')
+        + (a.quartier ? '<br><em>Quartier : ' + a.quartier + '</em>' : '')
+        + '<br><a href="' + a.lien + '" target="_blank" rel="noopener">Voir l\'annonce →</a>'
+        + '</div>'
+      );
+      gmapInfoWindow.open(gmap, marker);
+    });
+    gmapMarkers.push(marker);
+    bounds.extend(pos);
   });
-  document.getElementById('mapSvg').innerHTML = `
-    <rect width="360" height="300" fill="#dce8f0"/>
-    ${pos.map(c => `
-      <ellipse cx="${c.x}" cy="${c.y}" rx="36" ry="23" fill="#b8cfe0" stroke="#8aafc0" stroke-width="0.5" opacity=".75"/>
-      <text x="${c.x}" y="${c.y + 4}" text-anchor="middle" font-size="9" fill="#1a4a6b" font-weight="600" font-family="DM Sans,sans-serif">${c.n}</text>
-    `).join('')}${pins}
-    <text x="180" y="15" text-anchor="middle" font-size="9" fill="#1a4a6b" opacity=".5" font-family="DM Sans,sans-serif">Hauts-de-Seine Sud · 4 communes</text>
-    <circle cx="320" cy="270" r="6" fill="#e07b3a" stroke="#fff" stroke-width="1.5"/>
-    <text x="330" y="274" font-size="8" fill="#1a4a6b" font-family="DM Sans,sans-serif">Bien'ici ✓</text>
-    <circle cx="320" cy="285" r="5" fill="#1a4a6b" stroke="#fff" stroke-width="1.5"/>
-    <text x="330" y="289" font-size="8" fill="#1a4a6b" font-family="DM Sans,sans-serif">Veille</text>`;
+
+  if(gmapMarkers.length){
+    gmap.fitBounds(bounds);
+    google.maps.event.addListenerOnce(gmap, 'idle', () => {
+      if(gmap.getZoom() > 15) gmap.setZoom(15);
+    });
+  }
 }
 
 function tog(el){ el.classList.toggle('off'); }
 
-function openGMaps(){
-  window.open('https://www.google.com/maps/search/immobilier+sceaux+bourg-la-reine+chatenay+fontenay/@48.77,2.28,13z','_blank');
+function openTourneeNouveaux(){
+  const windowDays = tourneeWindowDays();
+  const tournables = biens.filter(a => isRecent(a.emailDate, windowDays * 24));
+  if(tournables.length === 0){
+    alert('Aucun bien dans la fenêtre de tournée (' + windowDays + ' derniers jours).');
+    return;
+  }
+  // Les alertes Bien'ici sont commune-level → on dédoublonne par commune
+  const communes = [...new Set(tournables.map(a => a.commune))];
+  const enc = c => encodeURIComponent(c + ', France');
+  let url;
+  if(communes.length === 1){
+    url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + enc(communes[0]);
+  } else {
+    const waypoints = communes.slice(0, -1).map(enc).join('|');
+    url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving'
+        + '&waypoints=' + waypoints
+        + '&destination=' + enc(communes[communes.length - 1]);
+  }
+  window.open(url, '_blank');
 }
 function openBoitageRoute(){
   const s = zones.map(z => encodeURIComponent(z.q + ', France')).join('/');
