@@ -39,12 +39,12 @@ const COMMUNE_NORMALIZE: Record<string, string> = {
   "fontenay-aux-roses": "Fontenay-aux-Roses",
 };
 
-// Query Gmail : emails de N'IMPORTE QUEL expéditeur Bien'ici sur les 7 derniers
-// jours. Bien'ici utilise plusieurs adresses (no_reply@, alertes@, ...) selon
-// le type d'email — `from:bienici.com` capture tout. Fenêtre 7j = sécurité (un
-// scan manqué ne fait rien perdre) ; les emails déjà traités sont de toute
-// façon ignorés via processedEmailIds.
-const GMAIL_QUERY = "from:bienici.com newer_than:7d";
+// Query Gmail : emails Bien'ici des 7 derniers jours. Adresse expéditrice
+// vérifiée empiriquement = no_reply@bienici.com. La syntaxe `from:bienici.com`
+// (juste le domaine) renvoyait 0 résultats via l'API Gmail — on garde le
+// matcher exact. Si Bien'ici utilise d'autres adresses un jour, on passera à
+// `from:(no_reply@bienici.com OR alertes@bienici.com OR ...)`.
+const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:7d";
 
 // Plafond d'emails traités par exécution. Gmail renvoie les emails du plus
 // récent au plus ancien → on traite les nouveaux en priorité (réactivité),
@@ -141,6 +141,12 @@ function stripHtml(html: string): string {
 
 // ─── Prompt Gemini : extraction structurée ──────────────────────────
 const GEMINI_PROMPT = `Tu es un extracteur d'annonces immobilières. On te donne le contenu textuel d'un email d'alerte Bien'ici reçu par un agent immobilier qui fait de la prospection.
+
+L'email peut prendre PLUSIEURS formes :
+- Alerte multi-annonces ("3 nouvelles annonces correspondent à votre alerte", liste de N annonces)
+- Alerte single-listing ("1 nouvelle annonce pour ...", une seule annonce mise en avant)
+- Récap périodique avec plusieurs biens
+Dans TOUS les cas, extrais TOUTE annonce que tu vois — même s'il n'y en a qu'une seule.
 
 Renvoie UNIQUEMENT un JSON valide (sans markdown, sans \`\`\`) de cette forme :
 
@@ -288,10 +294,13 @@ export default async (req: Request) => {
         const emailDate = new Date(
           parseInt(msg.data.internalDate ?? `${Date.now()}`)
         ).toISOString();
+        const subject = (msg.data.payload?.headers ?? []).find(
+          (h: any) => (h.name ?? "").toLowerCase() === "subject"
+        )?.value ?? "";
         const rawBody = decodeBody(msg.data.payload);
         if (!rawBody) {
-          console.warn(`[scan-bienici] Email ${m.id} : body vide`);
-          return { annonces: [] as any[], emailDate };
+          console.warn(`[scan-bienici] Email ${m.id} : body vide · "${subject.slice(0, 80)}"`);
+          return { annonces: [] as any[], emailDate, subject };
         }
         const text = stripHtml(rawBody);
         // Course Gemini vs timeout : si Gemini traîne, on lève
@@ -304,7 +313,7 @@ export default async (req: Request) => {
             )
           ),
         ])) as any[];
-        return { annonces, emailDate };
+        return { annonces, emailDate, subject };
       })
     );
 
@@ -313,7 +322,8 @@ export default async (req: Request) => {
       const r = results[i];
       const m = toProcess[i];
       if (r.status === "fulfilled") {
-        const { annonces, emailDate } = r.value;
+        const { annonces, emailDate, subject } = r.value;
+        const before = newListings.length;
         for (const a of annonces) {
           // Validation URL : on accepte tout sous-domaine bienici.com
           // (www., link., email., m., etc.) — certains emails utilisent
@@ -343,6 +353,20 @@ export default async (req: Request) => {
             source: "bienici-gmail",
           });
         }
+
+        // Log diagnostic : sujet + ce que Gemini a sorti / ce qu'on a retenu
+        const added = newListings.length - before;
+        const subjectShort = (subject || "(sans sujet)").slice(0, 80);
+        if (annonces.length === 0) {
+          console.warn(`[scan-bienici] ${m.id} · 0 annonce Gemini · "${subjectShort}"`);
+        } else if (added === 0) {
+          console.warn(
+            `[scan-bienici] ${m.id} · ${annonces.length} annonce(s) Gemini mais 0 retenue(s) · "${subjectShort}" · 1er lien=${annonces[0]?.lien ?? "?"} commune=${annonces[0]?.commune ?? "?"}`
+          );
+        } else {
+          console.log(`[scan-bienici] ${m.id} · ${added}/${annonces.length} retenue(s) · "${subjectShort}"`);
+        }
+
         newlyProcessed.push(m.id!);
       } else {
         console.error(`[scan-bienici] Erreur message ${m.id} :`, r.reason);
