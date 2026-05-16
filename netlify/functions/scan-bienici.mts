@@ -44,6 +44,12 @@ const COMMUNE_NORMALIZE: Record<string, string> = {
 // façon ignorés via processedEmailIds → aucun gaspillage de quota Gemini.
 const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:7d";
 
+// Plafond d'emails traités par exécution. Gmail renvoie les emails du plus
+// récent au plus ancien → on traite les nouveaux en priorité (réactivité),
+// le surplus est repris au scan suivant (dans 15 min). Borne la durée
+// d'exécution et lisse la charge.
+const MAX_EMAILS_PER_RUN = 10;
+
 // Lecture d'une variable d'env, nettoyée des espaces et guillemets parasites
 // (évite les erreurs invalid_client dues à un copier-coller imparfait)
 function env(name: string): string {
@@ -237,9 +243,11 @@ export default async (_req: Request) => {
     console.log(`[scan-bienici] ${messages.length} email(s) trouvé(s)`);
 
     // 4. Pour chaque email NON ENCORE TRAITÉ, extraire les annonces avec Gemini
+    //    (au plus MAX_EMAILS_PER_RUN par exécution, les plus récents d'abord)
     const newListings: Listing[] = [];
     const newlyProcessed: string[] = [];
     let skipped = 0;
+    let attempted = 0;
 
     for (const m of messages) {
       if (!m.id) continue;
@@ -249,6 +257,10 @@ export default async (_req: Request) => {
         skipped++;
         continue;
       }
+
+      // Plafond atteint → on garde le reste pour le prochain scan
+      if (attempted >= MAX_EMAILS_PER_RUN) break;
+      attempted++;
 
       try {
         const msg = await gmail.users.messages.get({
@@ -310,8 +322,9 @@ export default async (_req: Request) => {
       }
     }
 
+    const remaining = Math.max(0, messages.length - skipped - attempted);
     console.log(
-      `[scan-bienici] ${skipped} déjà traité(s) · ${newlyProcessed.length} traité(s) ce scan · ${newListings.length} nouvelle(s) annonce(s)`
+      `[scan-bienici] ${messages.length} trouvé(s) · ${skipped} déjà fait(s) · ${newlyProcessed.length} traité(s) ce scan · ${remaining} en attente · ${newListings.length} nouvelle(s) annonce(s)`
     );
 
     // 5. Merge : les annonces fraîchement extraites priment sur les anciennes
@@ -340,7 +353,7 @@ export default async (_req: Request) => {
 
     const ms = Date.now() - startedAt;
     return new Response(
-      `OK · ${newlyProcessed.length} email(s) traité(s) · ${newListings.length} nouvelles · ${trimmed.length} au total · ${ms}ms`,
+      `OK · ${newlyProcessed.length} email(s) traité(s) · ${remaining} en attente · ${newListings.length} nouvelles · ${trimmed.length} au total · ${ms}ms`,
       { status: 200 }
     );
   } catch (err) {
