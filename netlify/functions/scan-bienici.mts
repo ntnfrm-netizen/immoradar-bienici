@@ -39,10 +39,12 @@ const COMMUNE_NORMALIZE: Record<string, string> = {
   "fontenay-aux-roses": "Fontenay-aux-Roses",
 };
 
-// Query Gmail : emails Bien'ici des 7 derniers jours. Fenêtre large de sécurité
-// (un scan manqué ne fait rien perdre) ; les emails déjà traités sont de toute
-// façon ignorés via processedEmailIds → aucun gaspillage de quota Gemini.
-const GMAIL_QUERY = "from:no_reply@bienici.com newer_than:7d";
+// Query Gmail : emails de N'IMPORTE QUEL expéditeur Bien'ici sur les 7 derniers
+// jours. Bien'ici utilise plusieurs adresses (no_reply@, alertes@, ...) selon
+// le type d'email — `from:bienici.com` capture tout. Fenêtre 7j = sécurité (un
+// scan manqué ne fait rien perdre) ; les emails déjà traités sont de toute
+// façon ignorés via processedEmailIds.
+const GMAIL_QUERY = "from:bienici.com newer_than:7d";
 
 // Plafond d'emails traités par exécution. Gmail renvoie les emails du plus
 // récent au plus ancien → on traite les nouveaux en priorité (réactivité),
