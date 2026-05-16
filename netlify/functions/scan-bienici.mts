@@ -201,9 +201,17 @@ async function extractWithGemini(emailText: string): Promise<any[]> {
 }
 
 // ─── Handler principal ──────────────────────────────────────────────
-export default async (_req: Request) => {
+export default async (req: Request) => {
   const startedAt = Date.now();
-  console.log("[scan-bienici] Démarrage scan");
+  // Mode "?reset=1" : on vide la liste des emails traités pour tout
+  // re-scanner. Utile quand on change la logique d'extraction.
+  let forceReset = false;
+  try {
+    forceReset = new URL(req.url).searchParams.get("reset") === "1";
+  } catch {
+    /* en mode cron, req.url peut être minimal */
+  }
+  console.log("[scan-bienici] Démarrage scan" + (forceReset ? " (RESET)" : ""));
 
   try {
     // 1. Auth Gmail OAuth
@@ -232,7 +240,9 @@ export default async (_req: Request) => {
       quartier: l.quartier ?? "",
       indiceLocalisation: l.indiceLocalisation ?? "",
     }));
-    const processedIds = new Set<string>(existing?.processedEmailIds ?? []);
+    const processedIds = forceReset
+      ? new Set<string>()
+      : new Set<string>(existing?.processedEmailIds ?? []);
 
     // 3. Liste des messages récents
     const list = await gmail.users.messages.list({
@@ -305,7 +315,13 @@ export default async (_req: Request) => {
       if (r.status === "fulfilled") {
         const { annonces, emailDate } = r.value;
         for (const a of annonces) {
-          if (!a.lien || !a.lien.startsWith("https://www.bienici.com/")) continue;
+          // Validation URL : on accepte tout sous-domaine bienici.com
+          // (www., link., email., m., etc.) — certains emails utilisent
+          // des liens de tracking qui ne pointent pas directement sur www.
+          if (!a.lien) continue;
+          let host = "";
+          try { host = new URL(a.lien).hostname.toLowerCase(); } catch { continue; }
+          if (host !== "bienici.com" && !host.endsWith(".bienici.com")) continue;
           if (!a.prix || a.prix <= 0) continue;
           const commune = normalizeCommune(a.commune ?? "");
           if (!commune || !TARGET_COMMUNES.includes(commune)) continue;
