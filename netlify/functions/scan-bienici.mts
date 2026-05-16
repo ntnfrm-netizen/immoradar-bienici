@@ -243,58 +243,71 @@ export default async (_req: Request) => {
     console.log(`[scan-bienici] ${messages.length} email(s) trouvé(s)`);
 
     // 4. Pour chaque email NON ENCORE TRAITÉ, extraire les annonces avec Gemini
-    //    (au plus MAX_EMAILS_PER_RUN par exécution, les plus récents d'abord)
+    //    en PARALLÈLE (jusqu'à MAX_EMAILS_PER_RUN, les plus récents d'abord).
+    //    Le séquentiel cumulait les latences Gemini et dépassait le timeout
+    //    HTTP (30 s) de Netlify avant de pouvoir sauvegarder.
     const newListings: Listing[] = [];
     const newlyProcessed: string[] = [];
     let skipped = 0;
-    let attempted = 0;
 
+    // Pré-sélection des emails à traiter ce run
+    const toProcess: typeof messages = [];
     for (const m of messages) {
       if (!m.id) continue;
-
-      // On n'appelle Gemini que pour les emails jamais vus → préserve le quota
       if (processedIds.has(m.id)) {
         skipped++;
         continue;
       }
+      if (toProcess.length >= MAX_EMAILS_PER_RUN) break;
+      toProcess.push(m);
+    }
 
-      // Plafond atteint → on garde le reste pour le prochain scan
-      if (attempted >= MAX_EMAILS_PER_RUN) break;
-      attempted++;
+    // Timeout par appel Gemini : un appel lent ne bloque pas tout le run
+    const PER_EMAIL_TIMEOUT_MS = 14_000;
 
-      try {
+    // Traitement parallèle
+    const results = await Promise.allSettled(
+      toProcess.map(async (m) => {
         const msg = await gmail.users.messages.get({
           userId: "me",
-          id: m.id,
+          id: m.id!,
           format: "full",
         });
-
-        const rawBody = decodeBody(msg.data.payload);
-        if (!rawBody) {
-          console.warn(`[scan-bienici] Email ${m.id} : body vide`);
-          newlyProcessed.push(m.id); // rien à extraire, mais on ne le retraitera pas
-          continue;
-        }
-
-        const text = stripHtml(rawBody);
         const emailDate = new Date(
           parseInt(msg.data.internalDate ?? `${Date.now()}`)
         ).toISOString();
+        const rawBody = decodeBody(msg.data.payload);
+        if (!rawBody) {
+          console.warn(`[scan-bienici] Email ${m.id} : body vide`);
+          return { annonces: [] as any[], emailDate };
+        }
+        const text = stripHtml(rawBody);
+        // Course Gemini vs timeout : si Gemini traîne, on lève
+        const annonces = (await Promise.race([
+          extractWithGemini(text),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Gemini timeout (>14s)")),
+              PER_EMAIL_TIMEOUT_MS
+            )
+          ),
+        ])) as any[];
+        return { annonces, emailDate };
+      })
+    );
 
-        const annonces = await extractWithGemini(text);
-
+    // Récolte des résultats
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const m = toProcess[i];
+      if (r.status === "fulfilled") {
+        const { annonces, emailDate } = r.value;
         for (const a of annonces) {
-          // Validation minimale
           if (!a.lien || !a.lien.startsWith("https://www.bienici.com/")) continue;
           if (!a.prix || a.prix <= 0) continue;
-
-          // Filtre 4 communes
           const commune = normalizeCommune(a.commune ?? "");
           if (!commune || !TARGET_COMMUNES.includes(commune)) continue;
-
-          // Dédup intra-scan (un même email ne crée pas 2× la même annonce)
           if (newListings.find((n) => n.lien === a.lien)) continue;
-
           newListings.push({
             id: listingId(a.lien),
             type:
@@ -312,15 +325,12 @@ export default async (_req: Request) => {
             source: "bienici-gmail",
           });
         }
-
-        // Email traité avec succès → mémorisé pour ne plus jamais le retraiter
-        newlyProcessed.push(m.id);
-      } catch (err) {
-        // En cas d'erreur (ex : quota Gemini), on NE marque PAS l'email comme
-        // traité → il sera réessayé au prochain scan (dans 15 min)
-        console.error(`[scan-bienici] Erreur message ${m.id} :`, err);
+        newlyProcessed.push(m.id!);
+      } else {
+        console.error(`[scan-bienici] Erreur message ${m.id} :`, r.reason);
       }
     }
+    const attempted = toProcess.length;
 
     const remaining = Math.max(0, messages.length - skipped - attempted);
     console.log(
